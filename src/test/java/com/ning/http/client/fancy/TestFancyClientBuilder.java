@@ -49,8 +49,6 @@ public class TestFancyClientBuilder
         server.addConnector(listener);
 
         server.setHandler(new AbstractHandler() {
-
-            @Override
             public void handle(String path, HttpServletRequest req, HttpServletResponse res, int dispatch)
                 throws IOException, ServletException
             {
@@ -85,7 +83,6 @@ public class TestFancyClientBuilder
             this.res = res;
         }
 
-        @Override
         public void handle(HttpServletRequest req, HttpServletResponse res) throws IOException
         {
             res.getOutputStream().write(this.res.getBytes());

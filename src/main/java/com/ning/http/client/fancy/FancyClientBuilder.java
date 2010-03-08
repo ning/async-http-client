@@ -54,7 +54,6 @@ public class FancyClientBuilder
 
                 urls.put(method.toGenericString(), new Handler()
                 {
-                    @Override
                     public Object handle(Method m, Object[] args) throws IOException
                     {
                         AsyncHttpClient.BoundRequestBuilder r = client.prepareGet(url);
@@ -85,7 +84,6 @@ public class FancyClientBuilder
                                           new Class[]{clientClass},
                                           new InvocationHandler()
                                           {
-                                              @Override
                                               public Object invoke(Object o, Method method, Object[] objects) throws Throwable
                                               {
                                                   if (urls.containsKey(method.toGenericString())) {
