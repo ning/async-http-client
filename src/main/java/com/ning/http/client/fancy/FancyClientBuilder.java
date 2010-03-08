@@ -1,6 +1,10 @@
 package com.ning.http.client.fancy;
 
+import com.ning.http.client.AsyncHandler;
 import com.ning.http.client.AsyncHttpClient;
+import com.ning.http.client.Request;
+import com.ning.http.client.RequestBuilder;
+import com.ning.http.client.RequestType;
 
 import java.io.IOException;
 import java.lang.annotation.Annotation;
@@ -10,6 +14,7 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Proxy;
 import java.lang.reflect.Type;
 import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class FancyClientBuilder
 {
@@ -52,31 +57,12 @@ public class FancyClientBuilder
                     throw new UnsupportedOperationException("Not Yet Implemented!");
                 }
 
-                urls.put(method.toGenericString(), new Handler()
-                {
-                    public Object handle(Method m, Object[] args) throws IOException
-                    {
-                        AsyncHttpClient.BoundRequestBuilder r = client.prepareGet(url);
 
-                        Annotation[][] param_annos = m.getParameterAnnotations();
-                        for (int i = 0; i < param_annos.length; i++) {
-                            Annotation[] annos = param_annos[i];
-                            if (annos.length != 1) {
-                                throw new UnsupportedOperationException("Not Yet Implemented!");
-                            }
-                            for (Annotation anno : annos) {
-                                if (anno instanceof QueryParam) {
-                                    QueryParam qp = (QueryParam) anno;
-                                    String name = qp.value();
-                                    String value = String.valueOf(args[i]);
-                                    r.setQueryParameter(name, value);
-                                }
-                            }
-                        }
+                final Request template = new RequestBuilder(RequestType.GET)
+                    .setUrl(url)
+                    .build();
 
-                        return r.execute(mapper.getAsyncHandlerFor(crt));
-                    }
-                });
+                urls.put(method.toGenericString(), new Handler(template, mapper.getAsyncHandlerFor(crt), method));
             }
         }
 
@@ -87,7 +73,7 @@ public class FancyClientBuilder
                                               public Object invoke(Object o, Method method, Object[] objects) throws Throwable
                                               {
                                                   if (urls.containsKey(method.toGenericString())) {
-                                                      return urls.get(method.toGenericString()).handle(method, objects);
+                                                      return urls.get(method.toGenericString()).handle(objects);
                                                   }
                                                   else {
                                                       return method.invoke(o, objects);
@@ -97,8 +83,39 @@ public class FancyClientBuilder
     }
 
 
-    private interface Handler
+    private class Handler
     {
-        Object handle(Method m, Object[] args) throws IOException;
+        private final Request template;
+        private final AsyncHandler handler;
+        private final Map<Integer, String> params = new LinkedHashMap<Integer, String>();
+
+        private Handler(Request template, AsyncHandler handler, Method m)
+        {
+            this.template = template;
+            this.handler = handler;
+
+            Annotation[][] param_annos = m.getParameterAnnotations();
+            for (int i = 0; i < param_annos.length; i++) {
+                Annotation[] annos = param_annos[i];
+                for (Annotation anno : annos) {
+                    if (anno instanceof QueryParam) {
+                        QueryParam qp = (QueryParam) anno;
+                        String name = qp.value();
+                        params.put(i, name);
+                    }
+                }
+            }
+        }
+
+        Object handle(Object[] args) throws IOException
+        {
+            AsyncHttpClient.BoundRequestBuilder r = client.prepareRequest(template);
+
+            for (Map.Entry<Integer, String> entry : params.entrySet()) {
+                r.setQueryParameter(entry.getValue(), String.valueOf(args[entry.getKey()]));
+            }
+
+            return r.execute(handler);
+        }
     }
 }

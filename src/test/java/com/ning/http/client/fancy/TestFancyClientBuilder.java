@@ -195,7 +195,7 @@ public class TestFancyClientBuilder
         });
 
         try {
-            f.get(1, TimeUnit.SECONDS);
+            f.get(10, TimeUnit.SECONDS);
             fail("should have raised an execution exception");
         }
         catch (ExecutionException e) {
