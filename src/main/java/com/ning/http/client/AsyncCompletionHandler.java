@@ -16,6 +16,10 @@
  */
 package com.ning.http.client;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+
 /**
  * An {@link AsyncHandler} augmented with an {@link #onCompleted(Response)} convenience method which gets called
  * when the {@link Response} has been fully received.
@@ -23,36 +27,46 @@ package com.ning.http.client;
  * @param <T>  Type of the value that will be returned by the associated {@link java.util.concurrent.Future}
  */
 public abstract class AsyncCompletionHandler<T> implements AsyncHandler<T>{
+
+    private final Collection<HttpResponseBodyPart<?>> bodies =
+            Collections.synchronizedCollection(new ArrayList<HttpResponseBodyPart<?>>());
+    private HttpResponseStatus<?> status;
+    private HttpResponseHeaders<?> headers;
+
     /**
      * {@inheritDoc}
      */
-    @Override
-    public STATE onBodyPartReceived(final HttpResponseBodyPart content) throws Exception {
+    /* @Override */
+    public final STATE onBodyPartReceived(final HttpResponseBodyPart content) throws Exception {
+        bodies.add(content);
         return STATE.CONTINUE;
     }
 
     /**
      * {@inheritDoc}
      */
-    @Override
-    public STATE onStatusReceived(final HttpResponseStatus responseStatus) throws Exception {
+    /* @Override */
+    public final STATE onStatusReceived(final HttpResponseStatus status) throws Exception {
+        this.status = status;
         return STATE.CONTINUE;
     }
 
     /**
      * {@inheritDoc}
      */
-    @Override
-    public STATE onHeadersReceived(final HttpResponseHeaders headers) throws Exception {
+    /* @Override */
+    public final STATE onHeadersReceived(final HttpResponseHeaders headers) throws Exception {
+        this.headers = headers;
         return STATE.CONTINUE;
     }
+
 
     /**
      * {@inheritDoc}
      */
-    @Override
-    public T onCompleted() throws Exception {
-        return null;
+    /* @Override */
+    public final T onCompleted() throws Exception {
+        return onCompleted(status == null? null : status.provider().prepareResponse(status,headers,bodies));
     }
 
     /**

@@ -14,16 +14,19 @@
  * under the License.
  *
  */
-package com.ning.http.client;
+package com.ning.http.client.providers;
 
+import com.ning.http.client.AsyncHttpProvider;
+import com.ning.http.client.HttpResponseStatus;
 import com.ning.http.url.Url;
+import org.jboss.netty.handler.codec.http.HttpResponse;
 
 /**
  * A class that represent the HTTP response' status line (code + text)
  */
-public abstract class HttpResponseStatus<R> extends HttpContent<R>{
+public class ResponseStatus extends HttpResponseStatus<HttpResponse>{
 
-    public HttpResponseStatus(Url url,R response,AsyncHttpProvider provider) {
+    public ResponseStatus(Url url,HttpResponse response, AsyncHttpProvider provider) {
         super(url,response, provider);
     }
 
@@ -31,12 +34,16 @@ public abstract class HttpResponseStatus<R> extends HttpContent<R>{
      * Return the response status code
      * @return the response status code
      */
-    abstract public int getStatusCode();
+    public int getStatusCode(){
+        return response.getStatus().getCode();
+    }
 
     /**
      * Return the response status text
      * @return the response status text
      */
-    abstract public String getStatusText();
+    public String getStatusText(){
+        return response.getStatus().getReasonPhrase();
+    }
 
 }

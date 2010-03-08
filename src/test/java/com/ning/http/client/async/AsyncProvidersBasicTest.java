@@ -416,7 +416,7 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
 
         c.preparePost(TARGET_URL).setHeaders(h).setBody(new Request.EntityWriter() {
 
-            @Override
+            /* @Override */
             public void writeEntity(OutputStream out) throws IOException {
                 out.write(sb.toString().getBytes("UTF-8"));
             }
@@ -523,7 +523,7 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
                 return response;
             }
 
-            @Override
+            /* @Override */
             public void onThrowable(Throwable t) {
             }
         }).get();
@@ -643,7 +643,7 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
         Future<Response> future = c.preparePost(TARGET_URL).setHeaders(h).setBody(sb.toString()).execute(new AsyncCompletionHandlerAdapter());
         future.cancel(true);
         Response response = future.get(5, TimeUnit.SECONDS);
-        Assert.assertNotNull(response);
+        Assert.assertNull(response);
         c.close();
     }
 
