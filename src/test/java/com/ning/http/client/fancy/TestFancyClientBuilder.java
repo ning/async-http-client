@@ -1,6 +1,10 @@
 package com.ning.http.client.fancy;
 
+import com.ning.http.client.AsyncHandler;
 import com.ning.http.client.AsyncHttpClient;
+import com.ning.http.client.HttpResponseBodyPart;
+import com.ning.http.client.HttpResponseHeaders;
+import com.ning.http.client.HttpResponseStatus;
 import com.ning.http.client.Response;
 import org.apache.log4j.BasicConfigurator;
 import org.mortbay.jetty.Connector;
@@ -19,9 +23,12 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.testng.AssertJUnit.assertEquals;
+import static org.testng.AssertJUnit.fail;
 
 
 public class TestFancyClientBuilder
@@ -148,6 +155,52 @@ public class TestFancyClientBuilder
 
         assertEquals("name=brian", rs);
 
+    }
+
+    @Test
+    public void testExceptionBehavior() throws Exception
+    {
+        results.put("/", new MiniHandler() {
+            public void handle(HttpServletRequest req, HttpServletResponse res) throws IOException
+            {
+                res.getOutputStream().write("hello world".getBytes());
+            }
+        });
+
+        Future f = asyncClient.prepareGet("http://localhost:12345/").execute(new AsyncHandler() {
+
+            public void onThrowable(Throwable t)
+            {
+            }
+
+            public STATE onBodyPartReceived(HttpResponseBodyPart bodyPart) throws Exception
+            {
+                throw new UnsupportedOperationException("Not Yet Implemented!");
+            }
+
+            public STATE onStatusReceived(HttpResponseStatus responseStatus) throws Exception
+            {
+                return STATE.CONTINUE;
+            }
+
+            public STATE onHeadersReceived(HttpResponseHeaders headers) throws Exception
+            {
+                return STATE.CONTINUE;
+            }
+
+            public Object onCompleted() throws Exception
+            {
+                return STATE.CONTINUE;
+            }
+        });
+
+        try {
+            f.get(1, TimeUnit.SECONDS);
+            fail("should have raised an execution exception");
+        }
+        catch (ExecutionException e) {
+            assertEquals(1+1, 2);
+        }
     }
 
     @BaseURL("http://localhost:12345")
