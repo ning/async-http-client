@@ -55,7 +55,8 @@ public class TestFancyClientBuilder
 
         server.addConnector(listener);
 
-        server.setHandler(new AbstractHandler() {
+        server.setHandler(new AbstractHandler()
+        {
             public void handle(String path, HttpServletRequest req, HttpServletResponse res, int dispatch)
                 throws IOException, ServletException
             {
@@ -79,14 +80,17 @@ public class TestFancyClientBuilder
 
     }
 
-    private interface MiniHandler {
+    private interface MiniHandler
+    {
         void handle(HttpServletRequest req, HttpServletResponse res) throws IOException;
     }
 
-    private static class StringHandler implements MiniHandler{
+    private static class StringHandler implements MiniHandler
+    {
         private final String res;
 
-        private StringHandler(String res) {
+        private StringHandler(String res)
+        {
             this.res = res;
         }
 
@@ -122,52 +126,18 @@ public class TestFancyClientBuilder
     }
 
     @Test
-    public void testReturnResponse() throws Exception
-    {
-        results.put("/", new StringHandler("world"));
-
-        Future<Response> fr =  client.getRoot();
-        Response r = fr.get();
-
-        assertEquals("world", r.getResponseBody());
-    }
-
-    @Test
-    public void testReturnString() throws Exception
-    {
-        results.put("/", new StringHandler("world"));
-
-        Future<String> fr =  client.getRootAsString();
-        assertEquals("world", fr.get());
-    }
-
-    @Test
-    public void testQueryParam() throws Exception
-    {
-        results.put("/", new MiniHandler() {
-            public void handle(HttpServletRequest req, HttpServletResponse res) throws IOException
-            {
-                res.getOutputStream().write(req.getQueryString().getBytes());
-            }
-        });
-
-        String rs = client.getRootWithParam("brian").get();
-
-        assertEquals("name=brian", rs);
-
-    }
-
-    @Test
     public void testExceptionBehavior() throws Exception
     {
-        results.put("/", new MiniHandler() {
+        results.put("/", new MiniHandler()
+        {
             public void handle(HttpServletRequest req, HttpServletResponse res) throws IOException
             {
                 res.getOutputStream().write("hello world".getBytes());
             }
         });
 
-        Future f = asyncClient.prepareGet("http://localhost:12345/").execute(new AsyncHandler() {
+        Future f = asyncClient.prepareGet("http://localhost:12345/").execute(new AsyncHandler()
+        {
 
             public void onThrowable(Throwable t)
             {
@@ -199,8 +169,46 @@ public class TestFancyClientBuilder
             fail("should have raised an execution exception");
         }
         catch (ExecutionException e) {
-            assertEquals(1+1, 2);
+            assertEquals(1 + 1, 2);
         }
+    }
+
+
+    @Test
+    public void testReturnResponse() throws Exception
+    {
+        results.put("/", new StringHandler("world"));
+
+        Future<Response> fr = client.getRoot();
+        Response r = fr.get();
+
+        assertEquals("world", r.getResponseBody());
+    }
+
+    @Test
+    public void testReturnString() throws Exception
+    {
+        results.put("/", new StringHandler("world"));
+
+        Future<String> fr = client.getRootAsString();
+        assertEquals("world", fr.get());
+    }
+
+    @Test
+    public void testQueryParam() throws Exception
+    {
+        results.put("/", new MiniHandler()
+        {
+            public void handle(HttpServletRequest req, HttpServletResponse res) throws IOException
+            {
+                res.getOutputStream().write(req.getQueryString().getBytes());
+            }
+        });
+
+        String rs = client.getRootWithParam("brian").get();
+
+        assertEquals("name=brian", rs);
+
     }
 
     @BaseURL("http://localhost:12345")
