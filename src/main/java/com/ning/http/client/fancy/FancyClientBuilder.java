@@ -116,7 +116,7 @@ public class FancyClientBuilder
                                 }
                             });
                         }
-                        else if (param_types[i].isAssignableFrom(Iterable.class)) {
+                        else if (Iterable.class.isAssignableFrom(param_types[i])) {
                             params.put(i, new ParamWriter()
                             {
                                 public void write(AsyncHttpClient.BoundRequestBuilder r, Object arg)

@@ -20,6 +20,8 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -260,6 +262,22 @@ public class TestFancyClientBuilder
         assertEquals("count=1&count=2", rs);
     }
 
+    @Test
+    public void testCollectionArg() throws Exception
+    {
+        results.put("/", new MiniHandler()
+        {
+            public void handle(HttpServletRequest req, HttpServletResponse res) throws IOException
+            {
+                res.getOutputStream().write(req.getQueryString().getBytes());
+            }
+        });
+
+        String rs = client.rootWithCollection(Arrays.asList("hello", "world")).get();
+
+        assertEquals("name=hello&name=world", rs);
+    }
+
     @BaseURL("http://localhost:12345")
     public interface FooClient
     {
@@ -281,6 +299,9 @@ public class TestFancyClientBuilder
         @GET("/")
         public Future<String> getRootWithTwoParamsSameName(@QueryParam("name") String name,
                                                            @QueryParam("name") String name2);
+
+        @GET("/")
+        public Future<String> rootWithCollection(@QueryParam("name") Collection<String> names);
 
     }
 
