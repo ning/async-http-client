@@ -112,7 +112,7 @@ public class FancyClientBuilder
             AsyncHttpClient.BoundRequestBuilder r = client.prepareRequest(template);
 
             for (Map.Entry<Integer, String> entry : params.entrySet()) {
-                r.setQueryParameter(entry.getValue(), String.valueOf(args[entry.getKey()]));
+                r.addQueryParameter(entry.getValue(), String.valueOf(args[entry.getKey()]));
             }
 
             return r.execute(handler);
