@@ -208,7 +208,56 @@ public class TestFancyClientBuilder
         String rs = client.getRootWithParam("brian").get();
 
         assertEquals("name=brian", rs);
+    }
 
+    @Test
+    public void testTwoParamsSameName() throws Exception
+    {
+        results.put("/", new MiniHandler()
+        {
+            public void handle(HttpServletRequest req, HttpServletResponse res) throws IOException
+            {
+                res.getOutputStream().write(req.getQueryString().getBytes());
+            }
+        });
+
+        String rs = client.getRootWithTwoParamsSameName("brian", "jeanfrancois").get();
+
+        assertEquals("name=brian&name=jeanfrancois", rs);
+
+    }
+
+    @Test
+    public void testVarArgsParam() throws Exception
+    {
+        results.put("/", new MiniHandler()
+        {
+            public void handle(HttpServletRequest req, HttpServletResponse res) throws IOException
+            {
+                res.getOutputStream().write(req.getQueryString().getBytes());
+            }
+        });
+
+        String rs = client.getRootWithVarargsParam("brian", "jeanfrancois").get();
+
+        assertEquals("name=brian&name=jeanfrancois", rs);
+
+    }
+
+    @Test
+    public void testPrimitiveVarArgsParam() throws Exception
+    {
+        results.put("/", new MiniHandler()
+        {
+            public void handle(HttpServletRequest req, HttpServletResponse res) throws IOException
+            {
+                res.getOutputStream().write(req.getQueryString().getBytes());
+            }
+        });
+
+        String rs = client.getRootWithPrimitiveVarargsParam(1, 2).get();
+
+        assertEquals("count=1&count=2", rs);
     }
 
     @BaseURL("http://localhost:12345")
@@ -222,6 +271,17 @@ public class TestFancyClientBuilder
 
         @GET("/")
         public Future<String> getRootWithParam(@QueryParam("name") String name);
+
+        @GET("/")
+        public Future<String> getRootWithVarargsParam(@QueryParam("name") String... names);
+
+        @GET("/")
+        public Future<String> getRootWithPrimitiveVarargsParam(@QueryParam("count") int... counts);
+
+        @GET("/")
+        public Future<String> getRootWithTwoParamsSameName(@QueryParam("name") String name,
+                                                           @QueryParam("name") String name2);
+
     }
 
 }

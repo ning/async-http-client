@@ -8,11 +8,13 @@ import com.ning.http.client.RequestType;
 
 import java.io.IOException;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Array;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Proxy;
 import java.lang.reflect.Type;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -87,21 +89,53 @@ public class FancyClientBuilder
     {
         private final Request template;
         private final AsyncHandler handler;
-        private final Map<Integer, String> params = new LinkedHashMap<Integer, String>();
+        private final Map<Integer, ParamWriter> params = new LinkedHashMap<Integer, ParamWriter>();
 
         private Handler(Request template, AsyncHandler handler, Method m)
         {
             this.template = template;
             this.handler = handler;
 
+            Class[] param_types = m.getParameterTypes();
             Annotation[][] param_annos = m.getParameterAnnotations();
             for (int i = 0; i < param_annos.length; i++) {
                 Annotation[] annos = param_annos[i];
                 for (Annotation anno : annos) {
                     if (anno instanceof QueryParam) {
                         QueryParam qp = (QueryParam) anno;
-                        String name = qp.value();
-                        params.put(i, name);
+                        final String name = qp.value();
+
+                        if (param_types[i].isArray()) {
+                            params.put(i, new ParamWriter()
+                            {
+                                public void write(AsyncHttpClient.BoundRequestBuilder r, Object arg)
+                                {
+                                    for (int i = 0; i < Array.getLength(arg); i++) {
+                                        r.addQueryParameter(name, String.valueOf(Array.get(arg, i)));
+                                    }
+                                }
+                            });
+                        }
+                        else if (param_types[i].isAssignableFrom(Iterable.class)) {
+                            params.put(i, new ParamWriter()
+                            {
+                                public void write(AsyncHttpClient.BoundRequestBuilder r, Object arg)
+                                {
+                                    for (Object it : (Iterable)arg) {
+                                        r.addQueryParameter(name, String.valueOf(it));
+                                    }
+                                }
+                            });
+                        }
+                        else {
+                            params.put(i, new ParamWriter()
+                            {
+                                public void write(AsyncHttpClient.BoundRequestBuilder r, Object arg)
+                                {
+                                    r.addQueryParameter(name, String.valueOf(arg));
+                                }
+                            });
+                        }
                     }
                 }
             }
@@ -111,11 +145,16 @@ public class FancyClientBuilder
         {
             AsyncHttpClient.BoundRequestBuilder r = client.prepareRequest(template);
 
-            for (Map.Entry<Integer, String> entry : params.entrySet()) {
-                r.addQueryParameter(entry.getValue(), String.valueOf(args[entry.getKey()]));
+            for (Map.Entry<Integer, ParamWriter> entry : params.entrySet()) {
+                entry.getValue().write(r, args[entry.getKey()]);
             }
 
             return r.execute(handler);
         }
+    }
+
+    private interface ParamWriter
+    {
+        void write(AsyncHttpClient.BoundRequestBuilder r, Object arg);
     }
 }
