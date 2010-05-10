@@ -102,7 +102,6 @@ public class TestFancyClientBuilder
         }
     }
 
-
     @AfterClass(alwaysRun = true)
     public void tearDown() throws Exception
     {
@@ -115,66 +114,6 @@ public class TestFancyClientBuilder
         results.clear();
         client = builder.build(FooClient.class);
     }
-
-    @Test
-    public void testStuffWorks() throws Exception
-    {
-        results.put("/hello", new StringHandler("world"));
-        Response r = asyncClient.prepareGet("http://localhost:12345/hello").execute().get();
-
-        String rs = r.getResponseBody();
-        assertEquals("world".length(), rs.length());
-        assertEquals("world", rs);
-    }
-
-    @Test
-    public void testExceptionBehavior() throws Exception
-    {
-        results.put("/", new MiniHandler()
-        {
-            public void handle(HttpServletRequest req, HttpServletResponse res) throws IOException
-            {
-                res.getOutputStream().write("hello world".getBytes());
-            }
-        });
-
-        Future f = asyncClient.prepareGet("http://localhost:12345/").execute(new AsyncHandler()
-        {
-
-            public void onThrowable(Throwable t)
-            {
-            }
-
-            public STATE onBodyPartReceived(HttpResponseBodyPart bodyPart) throws Exception
-            {
-                throw new UnsupportedOperationException("Not Yet Implemented!");
-            }
-
-            public STATE onStatusReceived(HttpResponseStatus responseStatus) throws Exception
-            {
-                return STATE.CONTINUE;
-            }
-
-            public STATE onHeadersReceived(HttpResponseHeaders headers) throws Exception
-            {
-                return STATE.CONTINUE;
-            }
-
-            public Object onCompleted() throws Exception
-            {
-                return STATE.CONTINUE;
-            }
-        });
-
-        try {
-            f.get(10, TimeUnit.SECONDS);
-            fail("should have raised an execution exception");
-        }
-        catch (ExecutionException e) {
-            assertEquals(1 + 1, 2);
-        }
-    }
-
 
     @Test
     public void testReturnResponse() throws Exception
@@ -302,7 +241,5 @@ public class TestFancyClientBuilder
 
         @GET("/")
         public Future<String> rootWithCollection(@QueryParam("name") Collection<String> names);
-
     }
-
 }
