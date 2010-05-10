@@ -15,9 +15,11 @@
  */
 package com.ning.http.client;
 
+import javax.net.ssl.SSLEngine;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
 
 /**
  * Configuration class to use with a {@link AsyncHttpClient}. System property can be also used to configure this
@@ -41,8 +43,8 @@ public class AsyncHttpClientConfig {
 
     private final int maxTotalConnections;
     private final int maxConnectionPerHost;
-    private final long connectionTimeOutInMs;
-    private final long idleConnectionTimeoutInMs;
+    private final int connectionTimeOutInMs;
+    private final int idleConnectionTimeoutInMs;
     private final int requestTimeoutInMs;
     private final boolean redirectEnabled;
     private final int maxDefaultRedirects;
@@ -52,11 +54,12 @@ public class AsyncHttpClientConfig {
     private final ScheduledExecutorService reaper;
     private final ExecutorService applicationThreadPool;
     private final ProxyServer proxyServer;
+    private final SSLEngine sslEngine;
 
     private AsyncHttpClientConfig(int maxTotalConnections,
                                   int maxConnectionPerHost,
-                                  long connectionTimeOutInMs,
-                                  long idleConnectionTimeoutInMs,
+                                  int connectionTimeOutInMs,
+                                  int idleConnectionTimeoutInMs,
                                   int requestTimeoutInMs,
                                   boolean redirectEnabled,
                                   int maxDefaultRedirects,
@@ -65,7 +68,8 @@ public class AsyncHttpClientConfig {
                                   boolean keepAlive,
                                   ScheduledExecutorService reaper,
                                   ExecutorService applicationThreadPool,
-                                  ProxyServer proxyServer) {
+                                  ProxyServer proxyServer,
+                                  SSLEngine sslEngine) {
 
         this.maxTotalConnections = maxTotalConnections;
         this.maxConnectionPerHost = maxConnectionPerHost;
@@ -77,9 +81,14 @@ public class AsyncHttpClientConfig {
         this.compressionEnabled = compressionEnabled;
         this.userAgent = userAgent;
         this.keepAlive = keepAlive;
+        this.sslEngine = sslEngine;
 
         if (reaper == null) {
-            this.reaper = Executors.newScheduledThreadPool(1);
+            this.reaper = Executors.newSingleThreadScheduledExecutor(new ThreadFactory(){
+                public Thread newThread(Runnable r) {
+                    return new Thread(r,"AsyncHttpClient-Reaper");
+                }
+            });
         } else {
             this.reaper = reaper;
         }
@@ -124,7 +133,7 @@ public class AsyncHttpClientConfig {
      *
      * @return the maximum time in millisecond an {@link com.ning.http.client.AsyncHttpClient} can wait when connecting to a remote host
      */
-    public long getConnectionTimeoutInMs() {
+    public int getConnectionTimeoutInMs() {
         return connectionTimeOutInMs;
     }
 
@@ -133,7 +142,7 @@ public class AsyncHttpClientConfig {
      *
      * @return the maximum time in millisecond an {@link com.ning.http.client.AsyncHttpClient} can stay idle.
      */
-    public long getIdleConnectionTimeout() {
+    public int getIdleConnectionTimeoutInMs() {
         return idleConnectionTimeoutInMs;
     }
 
@@ -142,7 +151,7 @@ public class AsyncHttpClientConfig {
      *
      * @return the maximum time in millisecond an {@link com.ning.http.client.AsyncHttpClient} wait for a response
      */
-    public int getRequestTimeout() {
+    public int getRequestTimeoutInMs() {
         return requestTimeoutInMs;
     }
 
@@ -212,13 +221,21 @@ public class AsyncHttpClientConfig {
     }
 
     /**
+     * Return an instance of {@link SSLEngine} used for SSL connection.
+     * @return an instance of {@link SSLEngine} used for SSL connection.
+     */
+    public SSLEngine getSSLEngine(){
+        return sslEngine;
+    }
+
+    /**
      * Builder for an {@link AsyncHttpClient}
      */
     public static class Builder {
         private int defaultMaxTotalConnections = Integer.getInteger(ASYNC_CLIENT + "defaultMaxTotalConnections", 2000);
         private int defaultMaxConnectionPerHost = Integer.getInteger(ASYNC_CLIENT + "defaultMaxConnectionsPerHost", 2000);
-        private long defaultConnectionTimeOutInMs = Long.getLong(ASYNC_CLIENT + "defaultConnectionTimeoutInMS", 60 * 1000L);
-        private long defaultIdleConnectionTimeoutInMs = Long.getLong(ASYNC_CLIENT + "defaultIdleConnectionTimeoutInMS", 60 * 1000L);
+        private int defaultConnectionTimeOutInMs = Integer.getInteger(ASYNC_CLIENT + "defaultConnectionTimeoutInMS", 60 * 1000);
+        private int defaultIdleConnectionTimeoutInMs = Integer.getInteger(ASYNC_CLIENT + "defaultIdleConnectionTimeoutInMS", 60 * 1000);
         private int defaultRequestTimeoutInMs = Integer.getInteger(ASYNC_CLIENT + "defaultRequestTimeoutInMS", 60 * 1000);
         private boolean redirectEnabled = Boolean.getBoolean(ASYNC_CLIENT + "defaultRedirectsEnabled");
         private int maxDefaultRedirects = Integer.getInteger(ASYNC_CLIENT + "defaultMaxRedirects", 5);
@@ -228,6 +245,7 @@ public class AsyncHttpClientConfig {
         private ScheduledExecutorService reaper = Executors.newScheduledThreadPool(Runtime.getRuntime().availableProcessors());
         private ExecutorService applicationThreadPool = Executors.newCachedThreadPool();
         private ProxyServer proxyServer = null;
+        private SSLEngine sslEngine;
 
         public Builder() {
         }
@@ -260,7 +278,7 @@ public class AsyncHttpClientConfig {
          * @param defaultConnectionTimeOutInMs the maximum time in millisecond an {@link com.ning.http.client.AsyncHttpClient} can wait when connecting to a remote host
          * @return a {@link Builder}
          */
-        public Builder setConnectionTimeoutInMs(long defaultConnectionTimeOutInMs) {
+        public Builder setConnectionTimeoutInMs(int defaultConnectionTimeOutInMs) {
             this.defaultConnectionTimeOutInMs = defaultConnectionTimeOutInMs;
             return this;
         }
@@ -272,7 +290,7 @@ public class AsyncHttpClientConfig {
          *         the maximum time in millisecond an {@link com.ning.http.client.AsyncHttpClient} can stay idle.
          * @return a {@link Builder}
          */
-        public Builder setIdleConnectionTimeout(long defaultIdleConnectionTimeoutInMs) {
+        public Builder setIdleConnectionTimeoutInMs(int defaultIdleConnectionTimeoutInMs) {
             this.defaultIdleConnectionTimeoutInMs = defaultIdleConnectionTimeoutInMs;
             return this;
         }
@@ -283,7 +301,7 @@ public class AsyncHttpClientConfig {
          * @param defaultRequestTimeoutInMs the maximum time in millisecond an {@link com.ning.http.client.AsyncHttpClient} wait for a response
          * @return a {@link Builder}
          */
-        public Builder setRequestTimeout(int defaultRequestTimeoutInMs) {
+        public Builder setRequestTimeoutInMs(int defaultRequestTimeoutInMs) {
             this.defaultRequestTimeoutInMs = defaultRequestTimeoutInMs;
             return this;
         }
@@ -379,6 +397,17 @@ public class AsyncHttpClientConfig {
         }
 
         /**
+         * Set the {@link SSLEngine} for secure connection.
+         * 
+         * @param sslEngine the {@link SSLEngine} for secure connection
+         * @return a {@link Builder}
+         */
+        public Builder setSSLEngine(SSLEngine sslEngine){
+            this.sslEngine = sslEngine;
+            return this;
+        }
+
+        /**
          * Build an {@link AsyncHttpClientConfig}
          *
          * @return an {@link AsyncHttpClientConfig}
@@ -396,7 +425,8 @@ public class AsyncHttpClientConfig {
                     keepAlive,
                     reaper,
                     applicationThreadPool,
-                    proxyServer);
+                    proxyServer,
+                    sslEngine);
         }
 
     }

@@ -20,7 +20,7 @@
         <dependency>
             <groupId>org.jboss.netty</groupId>
             <artifactId>netty</artifactId>
-            <version>3.2.0.BETA1</version>
+            <version>3.2.0.CR1</version>
             <exclusions>
                 <exclusion>
                     <groupId>javax.servlet</groupId>
@@ -69,7 +69,10 @@
                 <extensions>true</extensions>
                 <configuration>
                     <instructions>
-                        <Import-Package>*</Import-Package>
+                        <Import-Package>
+                            !com.ning.http.*,
+                            *
+                        </Import-Package>
                         <Export-Package>
                             com.ning.http.*
                         </Export-Package>
@@ -85,6 +88,7 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
@@ -107,6 +111,7 @@
                     </execution>
                 </executions>
             </plugin>
+            -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -218,7 +223,7 @@
         </repository>
         <repository>
             <id>repository.jboss.org</id>
-            <url>http://repository.jboss.org/maven2</url>
+            <url>https://repository.jboss.org/nexus/content/groups/public/</url>
             <snapshots>
                 <enabled>false</enabled>
             </snapshots>

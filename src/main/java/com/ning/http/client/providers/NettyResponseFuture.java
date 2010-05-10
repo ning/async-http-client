@@ -46,10 +46,12 @@ public final class NettyResponseFuture<V> implements FutureImpl<V> {
     private final Request request;
     private final HttpRequest nettyRequest;
     private final AtomicReference<V> content = new AtomicReference<V>();
-    private final Url url;
+    private Url url;
     private boolean keepAlive = true;
     private HttpResponse httpResponse;
     private final AtomicReference<ExecutionException> exEx = new AtomicReference<ExecutionException>();
+    private volatile int redirectCount;
+    private Future<Object> reaperFuture;
     
     public NettyResponseFuture(Url url,
                                Request request,
@@ -66,6 +68,10 @@ public final class NettyResponseFuture<V> implements FutureImpl<V> {
 
     public Url getUrl() throws MalformedURLException {
         return url;
+    }
+
+    public void setUrl(Url url){
+        this.url = url;
     }
 
     /**
@@ -99,20 +105,11 @@ public final class NettyResponseFuture<V> implements FutureImpl<V> {
      */
     /* @Override */
     public V get() throws InterruptedException, ExecutionException{
-        if (!isDone() && !isCancelled()) {
-            if (!latch.await(responseTimeoutInMs, TimeUnit.MILLISECONDS)) {
-                isCancelled.set(true);
-                TimeoutException te = new TimeoutException("No response received");
-                onThrowable(te);
-                throw new RuntimeException(te);
-            }
-            isDone.set(true);
+        try {
+            return get(responseTimeoutInMs, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            throw new RuntimeException(e);
         }
-
-        if (exEx.get() != null){
-            throw exEx.getAndSet(null);
-        }
-        return (V) getContent();
     }
 
     /**
@@ -127,12 +124,12 @@ public final class NettyResponseFuture<V> implements FutureImpl<V> {
                 onThrowable(te);
                 throw te;
             }
+            isDone.set(true);
 
             if (exEx.get() != null){
                 throw exEx.getAndSet(null);
             }
         }
-
         return (V) getContent();
     }
 
@@ -156,17 +153,21 @@ public final class NettyResponseFuture<V> implements FutureImpl<V> {
         if (exEx.get() != null){
             return;
         }
+        if (reaperFuture != null) reaperFuture.cancel(true);
         isDone.set(true);
         getContent();
         latch.countDown();
     }
 
-    public final void abort(final RuntimeException t) {
+    public final void abort(final Throwable t) {
         if (isDone.get() || isCancelled.get()) return;
+
+        if (reaperFuture != null) reaperFuture.cancel(true);
         
         if (exEx.get() == null){
             exEx.set(new ExecutionException(t));
         }
+        asyncHandler.onThrowable(t);        
         isDone.set(true);
         latch.countDown();
     }
@@ -197,5 +198,13 @@ public final class NettyResponseFuture<V> implements FutureImpl<V> {
 
     public final void setHttpResponse(final HttpResponse httpResponse) {
         this.httpResponse = httpResponse;
+    }
+
+    public int incrementAndGetCurrentRedirectCount(){
+        return redirectCount++;
+    }
+
+    public void setReaperFuture(Future<Object> reaperFuture) {
+        this.reaperFuture = reaperFuture;
     }
 }

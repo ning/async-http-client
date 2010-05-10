@@ -38,9 +38,12 @@ import java.io.IOException;
 import java.util.Enumeration;
 
 public class AbstractBasicTest {
+  
     protected final static int PORT = 19999;
     protected Server server;
-    protected final static Logger log = Logger.getLogger(AsyncProvidersBasicTest.class);
+    protected final static Logger log = Logger.getLogger(AbstractBasicTest.class);
+
+    public final static int TIMEOUT = 30;
 
     protected final static String TARGET_URL = "http://127.0.0.1:19999/foo/test";
 
@@ -52,6 +55,10 @@ public class AbstractBasicTest {
                            HttpServletResponse httpResponse,
                            int dispatch) throws ServletException, IOException {
 
+            if (httpRequest.getHeader("X-HEAD") != null){
+                httpResponse.setContentLength(1);
+            }
+
             httpResponse.setContentType("text/html; charset=utf-8");
             Enumeration<?> e = httpRequest.getHeaderNames();
             String param;
@@ -60,12 +67,15 @@ public class AbstractBasicTest {
 
                 if (param.startsWith("LockThread")) {
                     try {
-                        Thread.sleep(20 * 1000);
+                        Thread.sleep(40 * 1000);
                     } catch (InterruptedException ex) {
-                        ex.printStackTrace();
                     }
                 }
 
+                if (param.startsWith("X-redirect")){
+                    httpResponse.sendRedirect(httpRequest.getHeader("X-redirect"));
+                    return;
+                }
                 httpResponse.addHeader("X-" + param, httpRequest.getHeader(param));
             }
 
@@ -120,6 +130,7 @@ public class AbstractBasicTest {
 
     @AfterClass(alwaysRun = true)
     public void tearDownGlobal() throws InterruptedException, Exception {
+        BasicConfigurator.resetConfiguration();
         server.stop();
     }
 
@@ -130,13 +141,13 @@ public class AbstractBasicTest {
     @BeforeClass(alwaysRun = true)
     public void setUpGlobal() throws Exception {
         server = new Server();
-        BasicConfigurator.configure();
+        BasicConfigurator.configure();        
 
         Connector listener = new SelectChannelConnector();
 
         listener.setHost("127.0.0.1");
         listener.setPort(PORT);
-
+                                                                                                 
         server.addConnector(listener);
 
         listener = new SelectChannelConnector();
@@ -146,7 +157,6 @@ public class AbstractBasicTest {
         server.addConnector(listener);
 
         server.setHandler(configureHandler());
-        server.start();
         server.start();
         log.info("Local HTTP server started successfully");
     }
@@ -176,17 +186,17 @@ public class AbstractBasicTest {
         }
 
         /* @Override */
-        public STATE onBodyPartReceived(final HttpResponseBodyPart content) throws Exception {
+        public STATE onBodyPartReceived(final HttpResponseBodyPart<String> content) throws Exception {
             return STATE.CONTINUE;
         }
 
         /* @Override */
-        public STATE onStatusReceived(final HttpResponseStatus responseStatus) throws Exception {
+        public STATE onStatusReceived(final HttpResponseStatus<String> responseStatus) throws Exception {
             return STATE.CONTINUE;
         }
 
         /* @Override */
-        public STATE onHeadersReceived(final HttpResponseHeaders headers) throws Exception {
+        public STATE onHeadersReceived(final HttpResponseHeaders<String> headers) throws Exception {
             return STATE.CONTINUE;
         }
 

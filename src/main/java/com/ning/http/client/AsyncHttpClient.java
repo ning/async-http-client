@@ -17,7 +17,12 @@
 package com.ning.http.client;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.util.Map;
 import java.util.concurrent.Future;
+
+import com.google.common.collect.Multimap;
+import com.ning.http.client.Request.EntityWriter;
 
 /**
  * This class support asynchronous and synchronous HTTP request.
@@ -116,23 +121,21 @@ import java.util.concurrent.Future;
  *
  * Finally, you can configure the AsyncHttpClient using an {@link AsyncHttpClientConfig} instance</p>
  * {@code
- *      AsyncHttpClient c = new AsyncHttpClient(new AsyncHttpClientConfig.Builder().setRequestTimeout(...).build());
+ *      AsyncHttpClient c = new AsyncHttpClient(new AsyncHttpClientConfig.Builder().setRequestTimeoutInMs(...).build());
  *      Future<Response> f = c.prepareGet(TARGET_URL).execute();
  *      Response r = f.get();
  * }
  *
- * An instance of this class will cache every HTTP 1.1 connections and close them when the {@link AsyncHttpClientConfig#getIdleConnectionTimeout()}
+ * An instance of this class will cache every HTTP 1.1 connections and close them when the {@link AsyncHttpClientConfig#getIdleConnectionTimeoutInMs()}
  * expires. This object can hold many persistent connections to different host.
  *
  */
 public class AsyncHttpClient {
 
     private final static String DEFAULT_PROVIDER = "com.ning.http.client.providers.NettyAsyncHttpProvider";
-    private final AsyncHttpProvider httpProvider;
+    private final AsyncHttpProvider<?> httpProvider;
     private final AsyncHttpClientConfig config;
-    private final static AsyncHandler<Response> defaultHandler = new AsyncCompletionHandlerBase();
 
-    
     /**
      * Create a new HTTP Asynchronous Client using the default {@link AsyncHttpClientConfig} configuration. The
      * default {@link AsyncHttpProvider} will be used ({@link com.ning.http.client.providers.NettyAsyncHttpProvider}
@@ -146,7 +149,7 @@ public class AsyncHttpClient {
      * the default {@link AsyncHttpClientConfig} configuration.
      * @param provider a {@link AsyncHttpProvider}
      */
-    public AsyncHttpClient(AsyncHttpProvider provider) {
+    public AsyncHttpClient(AsyncHttpProvider<?> provider) {
         this(provider,new AsyncHttpClientConfig.Builder().build());
     }
 
@@ -165,7 +168,7 @@ public class AsyncHttpClient {
      * @param config a {@link AsyncHttpClientConfig}
      * @param httpProvider a {@link AsyncHttpProvider}
      */
-    public AsyncHttpClient(AsyncHttpProvider httpProvider, AsyncHttpClientConfig config) {
+    public AsyncHttpClient(AsyncHttpProvider<?> httpProvider, AsyncHttpClientConfig config) {
         this.config = config;
         this.httpProvider = httpProvider;
     }
@@ -183,11 +186,11 @@ public class AsyncHttpClient {
 
     public class BoundRequestBuilder extends RequestBuilderBase<BoundRequestBuilder> {
         private BoundRequestBuilder(RequestType type) {
-            super(type);
+            super(BoundRequestBuilder.class, type);
         }
 
         private BoundRequestBuilder(Request prototype) {
-            super(prototype);
+            super(BoundRequestBuilder.class, prototype);
         }
 
         public <T> Future<T> execute(AsyncHandler<T> handler) throws IOException {
@@ -195,7 +198,96 @@ public class AsyncHttpClient {
         }
 
         public Future<Response> execute() throws IOException {
-            return AsyncHttpClient.this.executeRequest(build(), defaultHandler);
+            return AsyncHttpClient.this.executeRequest(build(), new AsyncCompletionHandlerBase());
+        }
+
+        // Note: For now we keep the delegates in place even though they are not needed
+        //       since otherwise Clojure (and maybe other languages) won't be able to
+        //       access these methods - see Clojure tickets 126 and 259
+
+        @Override
+        public BoundRequestBuilder addBodyPart(Part part) throws IllegalArgumentException {
+            return super.addBodyPart(part);
+        }
+
+        @Override
+        public BoundRequestBuilder addCookie(Cookie cookie) {
+            return super.addCookie(cookie);
+        }
+
+        @Override
+        public BoundRequestBuilder addHeader(String name, String value) {
+            return super.addHeader(name, value);
+        }
+
+        @Override
+        public BoundRequestBuilder addParameter(String key, String value) throws IllegalArgumentException {
+            return super.addParameter(key, value);
+        }
+
+        @Override
+        public BoundRequestBuilder addQueryParameter(String name, String value) {
+            return super.addQueryParameter(name, value);
+        }
+
+        @Override
+        public Request build() {
+            return super.build();
+        }
+
+        @Override
+        public BoundRequestBuilder setBody(byte[] data) throws IllegalArgumentException {
+            return super.setBody(data);
+        }
+
+        @Override
+        public BoundRequestBuilder setBody(EntityWriter dataWriter, long length) throws IllegalArgumentException {
+            return super.setBody(dataWriter, length);
+        }
+
+        @Override
+        public BoundRequestBuilder setBody(EntityWriter dataWriter) {
+            return super.setBody(dataWriter);
+        }
+
+        @Override
+        public BoundRequestBuilder setBody(InputStream stream) throws IllegalArgumentException {
+            return super.setBody(stream);
+        }
+
+        @Override
+        public BoundRequestBuilder setBody(String data) throws IllegalArgumentException {
+            return super.setBody(data);
+        }
+
+        @Override
+        public BoundRequestBuilder setHeader(String name, String value) {
+            return super.setHeader(name, value);
+        }
+
+        @Override
+        public BoundRequestBuilder setHeaders(Headers headers) {
+            return super.setHeaders(headers);
+        }
+
+        @Override
+        public BoundRequestBuilder setParameters(Map<String, String> parameters) throws IllegalArgumentException {
+            return super.setParameters(parameters);
+        }
+
+        @Override
+        public BoundRequestBuilder setParameters(Multimap<String, String> parameters) throws IllegalArgumentException {
+            return super.setParameters(parameters);
+        }
+
+        @Override
+        public BoundRequestBuilder setUrl(String url) {
+            return super.setUrl(url);
+        }
+
+        @Override
+        public BoundRequestBuilder setVirtualHost(String virtualHost) {
+            return super.setVirtualHost(virtualHost);
         }
     }
 
@@ -203,7 +295,7 @@ public class AsyncHttpClient {
      * Return the asynchronouys {@link com.ning.http.client.AsyncHttpProvider}
      * @return an {@link com.ning.http.client.AsyncHttpProvider}
      */
-    public AsyncHttpProvider getProvider() {
+    public AsyncHttpProvider<?> getProvider() {
         return httpProvider;
     }
 
@@ -300,11 +392,12 @@ public class AsyncHttpClient {
      * @throws IOException
      */
     public Future<Response> executeRequest(Request request) throws IOException {
-        return httpProvider.execute(request, defaultHandler );
+        return httpProvider.execute(request, new AsyncCompletionHandlerBase());
     }
 
+    @SuppressWarnings("unchecked")
     private final static AsyncHttpProvider<?> loadDefaultProvider(String className, AsyncHttpClientConfig config){
-        try{
+        try {
             Class<AsyncHttpProvider<?>> providerClass = (Class<AsyncHttpProvider<?>>) Thread.currentThread()
                     .getContextClassLoader().loadClass(className);
             return (AsyncHttpProvider<?>) providerClass.getDeclaredConstructor(

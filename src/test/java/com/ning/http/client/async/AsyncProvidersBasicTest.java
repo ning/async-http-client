@@ -21,6 +21,7 @@ import com.ning.http.client.AsyncHttpClientConfig;
 import com.ning.http.client.AsyncHttpClientConfig.Builder;
 import com.ning.http.client.Cookie;
 import com.ning.http.client.Headers;
+import com.ning.http.client.MaxRedirectException;
 import com.ning.http.client.Part;
 import com.ning.http.client.ProxyServer;
 import com.ning.http.client.Request;
@@ -39,11 +40,16 @@ import java.net.ConnectException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.testng.Assert.assertEquals;
 
 public class AsyncProvidersBasicTest extends AbstractBasicTest {
 
@@ -60,27 +66,33 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
 
             @Override
             public Response onCompleted(Response response) throws Exception {
-                Assert.assertEquals(response.getStatusCode(), 200);
-                int contentLenght = -1;
-                if (response.getHeader("content-length") != null) {
-                    contentLenght = Integer.valueOf(response.getHeader("content-length"));
+                try {
+                    assertEquals(response.getStatusCode(), 200);
+                    int contentLenght = -1;
+                    if (response.getHeader("content-length") != null) {
+                        contentLenght = Integer.valueOf(response.getHeader("content-length"));
+                    }
+                    int ct = connection.getContentLength();
+                    assertEquals(contentLenght, ct);
+                } finally {
+                    l.countDown();
                 }
-                int ct = connection.getContentLength();
-                Assert.assertEquals(contentLenght, ct);
-                l.countDown();
                 return response;
             }
 
             @Override
             public void onThrowable(Throwable t) {
-                Assert.fail("Unexpected exception", t);
-                l.countDown();
+                try {
+                    Assert.fail("Unexpected exception", t);
+                } finally {
+                    l.countDown();
+                }
             }
 
 
         }).get();
 
-        if (!l.await(5, TimeUnit.SECONDS)) {
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
             Assert.fail("Timeout out");
         }
 
@@ -97,14 +109,17 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
 
             @Override
             public Response onCompleted(Response response) throws Exception {
-                Assert.assertEquals(response.getStatusCode(), 200);
-                Assert.assertEquals(response.getContentType(), "text/html; charset=utf-8");
-                l.countDown();
+                try {
+                    assertEquals(response.getStatusCode(), 200);
+                    assertEquals(response.getContentType(), "text/html; charset=utf-8");
+                } finally {
+                    l.countDown();
+                }
                 return response;
             }
         }).get();
 
-        if (!l.await(5, TimeUnit.SECONDS)) {
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
             Assert.fail("Timeout out");
         }
         p.close();
@@ -119,15 +134,17 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
 
             @Override
             public Response onCompleted(Response response) throws Exception {
-                Assert.assertEquals(response.getStatusCode(), 200);
-                Assert.assertEquals(response.getContentType(), "text/html; charset=utf-8");
-
-                l.countDown();
+                try {
+                    assertEquals(response.getStatusCode(), 200);
+                    assertEquals(response.getContentType(), "text/html; charset=utf-8");
+                } finally {
+                    l.countDown();
+                }
                 return response;
             }
         }).get();
 
-        if (!l.await(5, TimeUnit.SECONDS)) {
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
             Assert.fail("Timeout out");
         }
 
@@ -150,18 +167,20 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
 
             @Override
             public Response onCompleted(Response response) throws Exception {
-                System.out.println(">>>>> " + response.getStatusText());
-                Assert.assertEquals(response.getStatusCode(), 200);
-                for (int i = 1; i < 5; i++) {
-                    Assert.assertEquals(response.getHeader("X-Test" + i), "Test" + i);
+                try {
+                    System.out.println(">>>>> " + response.getStatusText());
+                    assertEquals(response.getStatusCode(), 200);
+                    for (int i = 1; i < 5; i++) {
+                        assertEquals(response.getHeader("X-Test" + i), "Test" + i);
+                    }
+                } finally {
+                    l.countDown();
                 }
-                l.countDown();
-                l.countDown();
                 return response;
             }
         }).get();
 
-        if (!l.await(5, TimeUnit.SECONDS)) {
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
             Assert.fail("Timeout out");
         }
 
@@ -184,19 +203,21 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
 
             @Override
             public Response onCompleted(Response response) throws Exception {
+                try {
+                    assertEquals(response.getStatusCode(), 200);
+                    for (int i = 1; i < 5; i++) {
+                        System.out.println(">>>>> " + response.getHeader("X-param_" + i));
+                        assertEquals(response.getHeader("X-param_" + i), "value_" + i);
+                    }
 
-                Assert.assertEquals(response.getStatusCode(), 200);
-                for (int i = 1; i < 5; i++) {
-                    System.out.println(">>>>> " + response.getHeader("X-param_" + i));
-                    Assert.assertEquals(response.getHeader("X-param_" + i), "value_" + i);
+                } finally {
+                    l.countDown();
                 }
-
-                l.countDown();
                 return response;
             }
         }).get();
 
-        if (!l.await(5, TimeUnit.SECONDS)) {
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
             Assert.fail("Timeout out");
         }
 
@@ -212,13 +233,51 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
 
             @Override
             public Response onCompleted(Response response) throws Exception {
-                Assert.assertEquals(response.getStatusCode(), 200);
-                l.countDown();
+                try {
+                    assertEquals(response.getStatusCode(), 200);
+                } finally {
+                    l.countDown();
+                }
                 return response;
             }
         }).get();
 
-        if (!l.await(5, TimeUnit.SECONDS)) {
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
+            Assert.fail("Timeout out");
+        }
+
+    }
+
+    @Test(groups = "async", enabled = false)
+    public void asyncStatusHEADContentLenghtTest() throws Throwable {
+        NettyAsyncHttpProvider n = new NettyAsyncHttpProvider(new AsyncHttpClientConfig.Builder()
+                .setRequestTimeoutInMs(120 * 1000).build());
+
+        final CountDownLatch l = new CountDownLatch(1);
+        Request request = new RequestBuilder(RequestType.HEAD)
+                .setUrl(TARGET_URL)
+                .build();
+
+        n.execute(request, new AsyncCompletionHandlerAdapter() {
+            @Override
+            public Response onCompleted(Response response) throws Exception {
+                Assert.fail();
+                return response;
+            }
+
+            @Override
+            public void onThrowable(Throwable t) {
+                try {
+                    assertEquals(t.getClass(), IOException.class);
+                    assertEquals(t.getMessage(), "No response received. Connection timed out");
+                } finally {
+                    l.countDown();
+                }
+
+            }
+        }).get();
+
+        if (!l.await(10 * 5 * 1000, TimeUnit.SECONDS)) {
             Assert.fail("Timeout out");
         }
 
@@ -228,10 +287,10 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
     public void asyncNullSchemeTest() throws Throwable {
         AsyncHttpClient c = new AsyncHttpClient();
 
-        try{
+        try {
             c.prepareGet("www.sun.com").execute();
             Assert.fail();
-        } catch (IllegalArgumentException ex){
+        } catch (IllegalArgumentException ex) {
             Assert.assertTrue(true);
         }
 
@@ -248,15 +307,17 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
 
             @Override
             public Response onCompleted(Response response) throws Exception {
-
-                Assert.assertEquals(response.getStatusCode(), 200);
-                Assert.assertEquals(response.getHeader("Transfer-Encoding"), "chunked");
-                l.countDown();
+                try {
+                    assertEquals(response.getStatusCode(), 200);
+                    assertEquals(response.getHeader("Transfer-Encoding"), "chunked");
+                } finally {
+                    l.countDown();
+                }
                 return response;
             }
         }).get();
 
-        if (!l.await(5, TimeUnit.SECONDS)) {
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
             Assert.fail("Timeout out");
         }
 
@@ -278,16 +339,18 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
 
             @Override
             public Response onCompleted(Response response) throws Exception {
-
-                Assert.assertEquals(response.getStatusCode(), 200);
-                for (int i = 1; i < 5; i++) {
-                    Assert.assertEquals(response.getHeader("X-Test" + i), "Test" + i);
+                try {
+                    assertEquals(response.getStatusCode(), 200);
+                    for (int i = 1; i < 5; i++) {
+                        assertEquals(response.getHeader("X-Test" + i), "Test" + i);
+                    }
+                } finally {
+                    l.countDown();
                 }
-                l.countDown();
                 return response;
             }
         }).get();
-        if (!l.await(5, TimeUnit.SECONDS)) {
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
             Assert.fail("Timeout out");
         }
 
@@ -304,19 +367,49 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
         h.add("Test4", "Test4");
         h.add("Test5", "Test5");
 
-        Cookie coo = new Cookie("/", "foo", "value", "/", 3000, false);
+        final Cookie coo = new Cookie("/", "foo", "value", "/", -1, false);
         c.prepareGet(TARGET_URL).setHeaders(h).addCookie(coo).execute(new AsyncCompletionHandlerAdapter() {
 
             @Override
             public Response onCompleted(Response response) throws Exception {
-                System.out.println(">>>> " + response.getHeader("Set-Cookie"));
-                Assert.assertEquals(response.getStatusCode(), 200);
-                Assert.assertEquals("foo=value;Path=/;Domain=/", response.getHeader("Set-Cookie"));
-                l.countDown();
+                try {
+                    assertEquals(response.getStatusCode(), 200);
+                    List<Cookie> cookies = response.getCookies();
+                    assertEquals(cookies.size(), 1);
+                    assertEquals(cookies.get(0).toString(), coo.toString());
+                } finally {
+                    l.countDown();
+                }
                 return response;
             }
         }).get();
-        if (!l.await(5, TimeUnit.SECONDS)) {
+
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
+            Assert.fail("Timeout out");
+        }
+    }
+
+    @Test(groups = "async")
+    public void asyncDoPostDefaultContentType() throws Throwable {
+
+        AsyncHttpClient c = new AsyncHttpClient();
+        final CountDownLatch l = new CountDownLatch(1);
+        c.preparePost(TARGET_URL).addParameter("foo", "bar").execute(new AsyncCompletionHandlerAdapter() {
+
+            @Override
+            public Response onCompleted(Response response) throws Exception {
+                try {
+                    assertEquals(response.getStatusCode(), 200);
+                    Headers h = response.getHeaders();
+                    assertEquals(h.getHeaderValue("X-Content-Type"), "application/x-www-form-urlencoded");
+                } finally {
+                    l.countDown();
+                }
+                return response;
+            }
+        }).get();
+
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
             Assert.fail("Timeout out");
         }
     }
@@ -342,17 +435,20 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
 
             @Override
             public Response onCompleted(Response response) throws Exception {
-                Assert.assertEquals(response.getStatusCode(), 200);
-                for (int i = 1; i < 5; i++) {
-                    System.out.println(">>>>> " + response.getHeader("X-param_" + i));
-                    Assert.assertEquals(response.getHeader("X-param_" + i), "value_" + i);
+                try {
+                    assertEquals(response.getStatusCode(), 200);
+                    for (int i = 1; i < 5; i++) {
+                        System.out.println(">>>>> " + response.getHeader("X-param_" + i));
+                        assertEquals(response.getHeader("X-param_" + i), "value_" + i);
 
+                    }
+                } finally {
+                    l.countDown();
                 }
-                l.countDown();
                 return response;
             }
         }).get();
-        if (!l.await(5, TimeUnit.SECONDS)) {
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
             Assert.fail("Timeout out");
         }
     }
@@ -379,17 +475,60 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
 
             @Override
             public Response onCompleted(Response response) throws Exception {
-                Assert.assertEquals(response.getStatusCode(), 200);
-                for (int i = 1; i < 5; i++) {
-                    System.out.println(">>>>> " + response.getHeader("X-param_" + i));
-                    Assert.assertEquals(response.getHeader("X-param_" + i), "value_" + i);
+                try {
+                    assertEquals(response.getStatusCode(), 200);
+                    for (int i = 1; i < 5; i++) {
+                        System.out.println(">>>>> " + response.getHeader("X-param_" + i));
+                        assertEquals(response.getHeader("X-param_" + i), "value_" + i);
 
+                    }
+                } finally {
+                    l.countDown();
                 }
-                l.countDown();
                 return response;
             }
         }).get();
-        if (!l.await(5, TimeUnit.SECONDS)) {
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
+            Assert.fail("Timeout out");
+        }
+    }
+
+    @Test(groups = "async")
+    public void asyncDoPutInputStreamTest() throws Throwable {
+
+        AsyncHttpClient c = new AsyncHttpClient();
+        final CountDownLatch l = new CountDownLatch(1);
+        Headers h = new Headers();
+        h.add("Content-Type", "application/x-www-form-urlencoded");
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < 5; i++) {
+            sb.append("param_");
+            sb.append(i);
+            sb.append("=value_");
+            sb.append(i);
+            sb.append("&");
+        }
+        sb.deleteCharAt(sb.length() - 1);
+        ByteArrayInputStream is = new ByteArrayInputStream(sb.toString().getBytes());
+
+        c.preparePut(TARGET_URL).setHeaders(h).setBody(is).execute(new AsyncCompletionHandlerAdapter() {
+
+            @Override
+            public Response onCompleted(Response response) throws Exception {
+                try {
+                    assertEquals(response.getStatusCode(), 200);
+                    for (int i = 1; i < 5; i++) {
+                        System.out.println(">>>>> " + response.getHeader("X-param_" + i));
+                        assertEquals(response.getHeader("X-param_" + i), "value_" + i);
+
+                    }
+                } finally {
+                    l.countDown();
+                }
+                return response;
+            }
+        }).get();
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
             Assert.fail("Timeout out");
         }
     }
@@ -424,16 +563,19 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
 
             @Override
             public Response onCompleted(Response response) throws Exception {
-                Assert.assertEquals(response.getStatusCode(), 200);
-                for (int i = 1; i < 5; i++) {
-                    System.out.println(">>>>> " + response.getHeader("X-param_" + i));
-                    Assert.assertEquals(response.getHeader("X-param_" + i), "value_" + i);
+                try {
+                    assertEquals(response.getStatusCode(), 200);
+                    for (int i = 1; i < 5; i++) {
+                        System.out.println(">>>>> " + response.getHeader("X-param_" + i));
+                        assertEquals(response.getHeader("X-param_" + i), "value_" + i);
+                    }
+                } finally {
+                    l.countDown();
                 }
-                l.countDown();
                 return response;
             }
         }).get();
-        if (!l.await(5, TimeUnit.SECONDS)) {
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
             Assert.fail("Timeout out");
         }
     }
@@ -450,17 +592,20 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
 
             @Override
             public Response onCompleted(Response response) throws Exception {
-                String xContentType = response.getHeader("X-Content-Type");
-                String boundary = xContentType.substring(
-                        (xContentType.indexOf("boundary") + "boundary".length() + 1));
+                try {
+                    String xContentType = response.getHeader("X-Content-Type");
+                    String boundary = xContentType.substring(
+                            (xContentType.indexOf("boundary") + "boundary".length() + 1));
 
-                String s = response.getResponseBodyExcerpt(boundary.length() + "--".length()).substring("--".length());
-                Assert.assertEquals(boundary, s);
-                l.countDown();
+                    String s = response.getResponseBodyExcerpt(boundary.length() + "--".length()).substring("--".length());
+                    assertEquals(boundary, s);
+                } finally {
+                    l.countDown();
+                }
                 return response;
             }
         }).get();
-        if (!l.await(5, TimeUnit.SECONDS)) {
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
             Assert.fail("Timeout out");
         }
     }
@@ -487,13 +632,16 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
 
             @Override
             public Response onCompleted(Response response) throws Exception {
-                Assert.assertEquals(response.getStatusCode(), 200);
-                Assert.assertEquals(response.getHeader("X-Accept-Encoding"), "gzip");
-                l.countDown();
+                try {
+                    assertEquals(response.getStatusCode(), 200);
+                    assertEquals(response.getHeader("X-Accept-Encoding"), "gzip");
+                } finally {
+                    l.countDown();
+                }
                 return response;
             }
         }).get();
-        if (!l.await(5, TimeUnit.SECONDS)) {
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
             Assert.fail("Timeout out");
         }
 
@@ -529,9 +677,8 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
         }).get();
 
 
-
-        Assert.assertEquals(response.getStatusCode(), 200);
-        Assert.assertEquals(response.getHeader("X-Proxy-Connection"), "keep-alive");
+        assertEquals(response.getStatusCode(), 200);
+        assertEquals(response.getHeader("X-Proxy-Connection"), "keep-alive");
     }
 
 
@@ -547,16 +694,16 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
             m.put("param_" + i, "value_" + i);
         }
         Request request = new RequestBuilder(RequestType.POST)
-                            .setUrl(TARGET_URL)
-                            .setHeaders(h)
-                            .setParameters(m)
-                            .setVirtualHost("localhost")
-                            .build();
+                .setUrl(TARGET_URL)
+                .setHeaders(h)
+                .setParameters(m)
+                .setVirtualHost("localhost")
+                .build();
 
         Response response = n.execute(request, new AsyncCompletionHandlerAdapter()).get();
 
-        Assert.assertEquals(response.getStatusCode(), 200);
-        Assert.assertEquals(response.getHeader("X-Host"), "localhost:19999");
+        assertEquals(response.getStatusCode(), 200);
+        assertEquals(response.getHeader("X-Host"), "localhost:19999");
 
     }
 
@@ -578,8 +725,7 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
 
         Response response = c.preparePut(TARGET_URL).setHeaders(h).setBody(sb.toString()).execute(new AsyncCompletionHandlerAdapter()).get();
 
-        Assert.assertEquals(response.getStatusCode(), 200);
-        Assert.assertEquals(response.getHeader("X-param_1"), null);
+        assertEquals(response.getStatusCode(), 200);
 
     }
 
@@ -600,31 +746,25 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
         }
         sb.deleteCharAt(sb.length() - 1);
 
-        /*
-         * Use a Latch to simulate asynchronous response.
-         */
-        final CountDownLatch latch = new CountDownLatch(1);
-
         c.preparePost(TARGET_URL).setHeaders(h).setBody(sb.toString()).execute(new AsyncCompletionHandlerAdapter() {
 
             @Override
             public Response onCompleted(Response response) throws Exception {
                 try {
-                    Assert.assertEquals(response.getStatusCode(), 200);
+                    assertEquals(response.getStatusCode(), 200);
                     for (int i = 1; i < 5; i++) {
                         System.out.println(">>>>> " + response.getHeader("X-param_" + i));
-                        Assert.assertEquals(response.getHeader("X-param_" + i), "value_" + i);
+                        assertEquals(response.getHeader("X-param_" + i), "value_" + i);
 
                     }
-                    l.countDown();
                     return response;
                 } finally {
-                    latch.countDown();
+                    l.countDown();
                 }
             }
         });
 
-        if (!l.await(5, TimeUnit.SECONDS)) {
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
             Assert.fail("Timeout out");
         }
 
@@ -642,7 +782,7 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
 
         Future<Response> future = c.preparePost(TARGET_URL).setHeaders(h).setBody(sb.toString()).execute(new AsyncCompletionHandlerAdapter());
         future.cancel(true);
-        Response response = future.get(5, TimeUnit.SECONDS);
+        Response response = future.get(TIMEOUT, TimeUnit.SECONDS);
         Assert.assertNull(response);
         c.close();
     }
@@ -658,14 +798,14 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
         sb.append("LockThread=true");
 
         try {
-            Future<Response> future = c.preparePost(TARGET_URL).setHeaders(h).setBody(sb.toString()).execute(new AsyncCompletionHandlerAdapter(){
+            Future<Response> future = c.preparePost(TARGET_URL).setHeaders(h).setBody(sb.toString()).execute(new AsyncCompletionHandlerAdapter() {
                 @Override
                 public void onThrowable(Throwable t) {
                     t.printStackTrace();
                 }
             });
 
-            future.get(5, TimeUnit.SECONDS);
+            future.get(10, TimeUnit.SECONDS);
         } catch (TimeoutException ex) {
             Assert.assertTrue(true);
         } catch (IllegalStateException ex) {
@@ -694,7 +834,7 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
 
         Response response = future.get();
         Assert.assertNotNull(response);
-        Assert.assertEquals(response.getStatusCode(), 200);
+        assertEquals(response.getStatusCode(), 200);
 
     }
 
@@ -713,19 +853,22 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
         }
         sb.deleteCharAt(sb.length() - 1);
 
-        final CountDownLatch latch = new CountDownLatch(1);
+        final CountDownLatch l = new CountDownLatch(1);
 
         c.preparePost(TARGET_URL).setHeaders(h).setBody(sb.toString()).execute(new AsyncCompletionHandlerAdapter() {
 
-                    @Override
-                    public Response onCompleted(Response response) throws Exception {
-                        Assert.assertEquals(response.getStatusCode(), 200);
-                        latch.countDown();
-                        return response;
-                    }
-                });
+            @Override
+            public Response onCompleted(Response response) throws Exception {
+                try {
+                    assertEquals(response.getStatusCode(), 200);
+                } finally {
+                    l.countDown();
+                }
+                return response;
+            }
+        });
 
-        if (!latch.await(10, TimeUnit.SECONDS)) {
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
             Assert.fail("Latch time out");
         }
     }
@@ -746,17 +889,24 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
         }
         sb.deleteCharAt(sb.length() - 1);
 
-        IOException expected = null;
+        ConnectException expected = null;
         try {
-            c.preparePost("http://127.0.0.1:9999/").setHeaders(h).setBody(sb.toString()).execute(new AsyncCompletionHandlerAdapter());
-        } catch (IOException ex) {
-            expected = ex;
+            c.preparePost("http://127.0.0.1:9999/").setHeaders(h).setBody(sb.toString())
+                    .execute(new AsyncCompletionHandlerAdapter() {
+                        /* @Override */
+                        public void onThrowable(Throwable t) {
+                        }
+                    }).get();
+        } catch (ExecutionException ex) {
+            if (ex.getCause() instanceof ConnectException) {
+                expected = (ConnectException) ex.getCause();
+            }
         }
 
         if (expected != null) {
-            Assert.assertTrue(true);
+            assertEquals(expected.getClass(), ConnectException.class);
         } else {
-            Assert.fail("Must have thrown an IOException");
+            Assert.fail("Must have thrown an ExecutionException");
         }
     }
 
@@ -775,23 +925,75 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
         }
         sb.deleteCharAt(sb.length() - 1);
 
-        try{
-            c.preparePost("http://127.0.0.1:9999/").setHeaders(h).setBody(sb.toString()).execute(new AsyncCompletionHandlerAdapter());
+        try {
+            c.preparePost("http://127.0.0.1:9999/").setHeaders(h).setBody(sb.toString())
+                    .execute(new AsyncCompletionHandlerAdapter() {
+                        /* @Override */
+                        public void onThrowable(Throwable t) {
+                        }
+                    }).get();
             Assert.assertTrue(false);
-        } catch (ConnectException ex){
-            Assert.assertTrue(true);
+        } catch (ExecutionException ex) {
+            assertEquals(ex.getCause().getClass(), ConnectException.class);
         }
     }
+
+    @Test(groups = "async")
+    public void asyncConnectInvalidHandlerPort() throws Throwable {
+        AsyncHttpClient c = new AsyncHttpClient();
+        final CountDownLatch l = new CountDownLatch(1);
+
+        c.prepareGet("http://127.0.0.1:9999/").execute(new AsyncCompletionHandlerAdapter() {
+            /* @Override */
+            public void onThrowable(Throwable t) {
+                try {
+                    assertEquals(t.getClass(), ConnectException.class);
+                } finally {
+                    l.countDown();
+                }
+            }
+        });
+
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
+            Assert.fail("Timed out");
+        }
+    }
+
+    @Test(groups = "async")
+    public void asyncConnectInvalidHandlerHost() throws Throwable {
+        AsyncHttpClient c = new AsyncHttpClient();
+        final CountDownLatch l = new CountDownLatch(1);
+
+        c.prepareGet("http://null.apache.org:9999/").execute(new AsyncCompletionHandlerAdapter() {
+            /* @Override */
+            public void onThrowable(Throwable t) {
+                try {
+                    assertEquals(t.getClass(), ConnectException.class);
+                } finally {
+                    l.countDown();
+                }
+            }
+        });
+
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
+            Assert.fail("Timed out");
+        }
+    }
+
 
     @Test(groups = "async")
     public void asyncConnectInvalidFuturePort() throws Throwable {
         AsyncHttpClient c = new AsyncHttpClient();
 
         try {
-            c.prepareGet("http://127.0.0.1:9999/").execute(new AsyncCompletionHandlerAdapter());
+            c.prepareGet("http://127.0.0.1:9999/").execute(new AsyncCompletionHandlerAdapter() {
+                /* @Override */
+                public void onThrowable(Throwable t) {
+                }
+            }).get();
             Assert.fail("No ConnectionException was thrown");
-        } catch (ConnectException ex) {
-            Assert.assertEquals(ex.getMessage(), "Connection refused: http://127.0.0.1:9999/");
+        } catch (ExecutionException ex) {
+            assertEquals(ex.getCause().getClass(), ConnectException.class);
         }
 
     }
@@ -808,7 +1010,7 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
         }).get();
 
         Assert.assertNotNull(response);
-        Assert.assertEquals(response.getStatusCode(), 200);
+        assertEquals(response.getStatusCode(), 200);
     }
 
     @Test(groups = "async")
@@ -843,15 +1045,18 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
     public void asyncAPIContentLenghtGETTest() throws Throwable {
         AsyncHttpClient client = new AsyncHttpClient();
 
-        // Use a latch in case the assert fail
-        final CountDownLatch latch = new CountDownLatch(1);
+        // Use a l in case the assert fail
+        final CountDownLatch l = new CountDownLatch(1);
 
         client.prepareGet(TARGET_URL).execute(new AsyncCompletionHandlerAdapter() {
 
             @Override
             public Response onCompleted(Response response) throws Exception {
-                Assert.assertEquals(response.getStatusCode(), 200);
-                latch.countDown();
+                try {
+                    assertEquals(response.getStatusCode(), 200);
+                } finally {
+                    l.countDown();
+                }
                 return response;
             }
 
@@ -861,7 +1066,7 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
         });
 
 
-        if (!latch.await(10, TimeUnit.SECONDS)) {
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
             Assert.fail("Timed out");
         }
     }
@@ -870,8 +1075,8 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
     public void asyncAPIHandlerExceptionTest() throws Throwable {
         AsyncHttpClient client = new AsyncHttpClient();
 
-        // Use a latch in case the assert fail
-        final CountDownLatch latch = new CountDownLatch(1);
+        // Use a l in case the assert fail
+        final CountDownLatch l = new CountDownLatch(1);
 
         client.prepareGet(TARGET_URL).execute(new AsyncCompletionHandlerAdapter() {
             @Override
@@ -881,16 +1086,18 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
 
             @Override
             public void onThrowable(Throwable t) {
-                t.printStackTrace();
-                if (t.getMessage() != null) {
-                    Assert.assertEquals(t.getMessage(), "FOO");
-                    latch.countDown();
+                try {
+                    if (t.getMessage() != null) {
+                        assertEquals(t.getMessage(), "FOO");
+                    }
+                } finally {
+                    l.countDown();
                 }
             }
         });
 
 
-        if (!latch.await(10, TimeUnit.SECONDS)) {
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
             Assert.fail("Timed out");
         }
     }
@@ -899,10 +1106,10 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
     public void asyncDoGetDelayHandlerTest() throws Throwable {
         Headers h = new Headers();
         h.add("LockThread", "true");
-        AsyncHttpClient client = new AsyncHttpClient(new AsyncHttpClientConfig.Builder().setRequestTimeout(5 * 1000).build());
+        AsyncHttpClient client = new AsyncHttpClient(new AsyncHttpClientConfig.Builder().setRequestTimeoutInMs(5 * 1000).build());
 
-        // Use a latch in case the assert fail
-        final CountDownLatch latch = new CountDownLatch(1);
+        // Use a l in case the assert fail
+        final CountDownLatch l = new CountDownLatch(1);
 
         client.prepareGet(TARGET_URL).setHeaders(h).execute(new AsyncCompletionHandlerAdapter() {
 
@@ -911,7 +1118,7 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
                 try {
                     Assert.fail("Must not receive a response");
                 } finally {
-                    latch.countDown();
+                    l.countDown();
                 }
                 return response;
             }
@@ -925,12 +1132,12 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
                         Assert.fail("Unexpected exception", t);
                     }
                 } finally {
-                    latch.countDown();
+                    l.countDown();
                 }
             }
         });
 
-        if (!latch.await(10, TimeUnit.SECONDS)) {
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
             Assert.fail("Timed out");
         }
     }
@@ -939,16 +1146,19 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
     public void asyncDoGetQueryStringTest() throws Throwable {
         AsyncHttpClient client = new AsyncHttpClient();
 
-        // Use a latch in case the assert fail
-        final CountDownLatch latch = new CountDownLatch(1);
+        // Use a l in case the assert fail
+        final CountDownLatch l = new CountDownLatch(1);
 
-        AsyncCompletionHandler handler = new AsyncCompletionHandlerAdapter() {
+        AsyncCompletionHandler<Response> handler = new AsyncCompletionHandlerAdapter() {
 
             @Override
             public Response onCompleted(Response response) throws Exception {
-                Assert.assertTrue(response.getHeader("X-pathInfo") != null);
-                Assert.assertTrue(response.getHeader("X-queryString") != null);
-                latch.countDown();
+                try {
+                    Assert.assertTrue(response.getHeader("X-pathInfo") != null);
+                    Assert.assertTrue(response.getHeader("X-queryString") != null);
+                } finally {
+                    l.countDown();
+                }
                 return response;
             }
         };
@@ -956,9 +1166,9 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
         Request req = new RequestBuilder(RequestType.GET)
                 .setUrl(TARGET_URL + "?foo=bar").build();
 
-        client.executeRequest(req,handler).get();
+        client.executeRequest(req, handler).get();
 
-        if (!latch.await(10, TimeUnit.SECONDS)) {
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
             Assert.fail("Timed out");
         }
     }
@@ -967,23 +1177,24 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
     public void asyncDoGetKeepAliveHandlerTest() throws Throwable {
         AsyncHttpClient client = new AsyncHttpClient();
 
-        // Use a latch in case the assert fail
-        final CountDownLatch latch = new CountDownLatch(2);
+        // Use a l in case the assert fail
+        final CountDownLatch l = new CountDownLatch(2);
 
-        AsyncCompletionHandler handler = new AsyncCompletionHandlerAdapter() {
+        AsyncCompletionHandler<Response> handler = new AsyncCompletionHandlerAdapter() {
 
             String remoteAddr = null;
 
             @Override
             public Response onCompleted(Response response) throws Exception {
-
-                Assert.assertEquals(response.getStatusCode(),200);
-                if (remoteAddr == null){
-                    remoteAddr = response.getHeader("X-KEEP-ALIVE");
-                    latch.countDown();
-                } else {
-                    Assert.assertEquals(response.getHeader("X-KEEP-ALIVE"),remoteAddr);
-                    latch.countDown();
+                try {
+                    assertEquals(response.getStatusCode(), 200);
+                    if (remoteAddr == null) {
+                        remoteAddr = response.getHeader("X-KEEP-ALIVE");
+                    } else {
+                        assertEquals(response.getHeader("X-KEEP-ALIVE"), remoteAddr);
+                    }
+                } finally {
+                    l.countDown();
                 }
                 return response;
             }
@@ -992,23 +1203,24 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
         client.prepareGet(TARGET_URL).execute(handler).get();
         client.prepareGet(TARGET_URL).execute(handler);
 
-        if (!latch.await(10, TimeUnit.SECONDS)) {
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
             Assert.fail("Timed out");
         }
     }
+
 
     @Test(groups = "async")
     public void asyncDoGetMaxConnectionsTest() throws Throwable {
         AsyncHttpClient client = new AsyncHttpClient(new Builder().setMaximumConnectionsTotal(2).build());
 
-        // Use a latch in case the assert fail
-        final CountDownLatch latch = new CountDownLatch(2);
+        // Use a l in case the assert fail
+        final CountDownLatch l = new CountDownLatch(2);
 
-        AsyncCompletionHandler handler = new AsyncCompletionHandlerAdapter() {
+        AsyncCompletionHandler<Response> handler = new AsyncCompletionHandlerAdapter() {
 
             @Override
             public Response onCompleted(Response response) throws Exception {
-                latch.countDown();
+                l.countDown();
                 return response;
             }
 
@@ -1017,7 +1229,7 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
                 try {
                     Assert.fail("Unexpected exception", t);
                 } finally {
-                    latch.countDown();
+                    l.countDown();
                 }
             }
         };
@@ -1025,18 +1237,113 @@ public class AsyncProvidersBasicTest extends AbstractBasicTest {
         client.prepareGet("http://www.oracle.com/index.html").execute(handler).get();
         client.prepareGet("http://www.apache.org/").execute(handler).get();
 
-        try{
+        try {
             client.prepareGet("http://www.ning.com/").execute(handler).get();
             Assert.fail();
-        } catch (IOException ex){
+        } catch (IOException ex) {
             String s = ex.getMessage();
-            Assert.assertEquals(s,"Too many connections");
+            assertEquals(s, "Too many connections");
         }
 
-        if (!latch.await(10, TimeUnit.SECONDS)) {
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
             Assert.fail("Timed out");
         }
         client.close();
     }
 
+    @Test(groups = "async")
+    public void asyncDoGetMaxRedirectTest() throws Throwable {
+        AsyncHttpClient client = new AsyncHttpClient(new Builder().setMaximumNumberOfRedirects(0).setFollowRedirects(true).build());
+
+        // Use a l in case the assert fail
+        final CountDownLatch l = new CountDownLatch(1);
+
+        AsyncCompletionHandler<Response> handler = new AsyncCompletionHandlerAdapter() {
+
+            @Override
+            public Response onCompleted(Response response) throws Exception {
+                Assert.fail("Should not be here");
+                return response;
+            }
+
+            @Override
+            public void onThrowable(Throwable t) {
+                t.printStackTrace();
+                try {
+                    assertEquals(t.getClass(), MaxRedirectException.class);
+                } finally {
+                    l.countDown();
+                }
+            }
+        };
+
+        client.prepareGet("http://google.com/").execute(handler);
+
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
+            Assert.fail("Timed out");
+        }
+        client.close();
+    }
+
+    @Test(groups = "async")
+    public void asyncDoGetNestedTest() throws Throwable {
+        final AsyncHttpClient client = new AsyncHttpClient(new Builder().build());
+
+        // Use a l in case the assert fail
+        final CountDownLatch l = new CountDownLatch(2);
+
+        final AsyncCompletionHandler<Response> handler = new AsyncCompletionHandlerAdapter() {
+
+            private final static int MAX_NESTED = 2;
+
+            private AtomicInteger nestedCount = new AtomicInteger(0);
+
+            @Override
+            public Response onCompleted(Response response) throws Exception {
+                try {
+                    if (nestedCount.getAndIncrement() < MAX_NESTED) {
+                        System.out.println("Executing a nested request: " + nestedCount);
+                        client.prepareGet("http://google.com/").execute(this);
+                    }
+                } finally {
+                    l.countDown();
+                }
+                return response;
+            }
+
+            @Override
+            public void onThrowable(Throwable t) {
+                Assert.assertFalse(true);
+            }
+        };
+
+        client.prepareGet("http://www.google.com/").execute(handler);
+
+        if (!l.await(TIMEOUT, TimeUnit.SECONDS)) {
+            Assert.fail("Timed out");
+        }
+        client.close();
+    }
+
+    @Test(groups = "async")
+    public void asyncDoGetStreamAndBodyTest() throws Throwable {
+        final AsyncHttpClient client = new AsyncHttpClient(new Builder().build());
+        Response r = client.prepareGet("http://www.google.com/").execute().get();
+
+        r.getResponseBody();
+        r.getResponseBodyAsStream();
+
+        client.close();
+    }
+
+    @Test(groups = "async")
+    public void asyncUrlWithoutPath() throws Throwable {
+        final AsyncHttpClient client = new AsyncHttpClient(new Builder().build());
+        Response r = client.prepareGet("http://www.google.com").execute().get();
+
+        r.getResponseBody();
+        r.getResponseBodyAsStream();
+
+        client.close();
+    }
 }
