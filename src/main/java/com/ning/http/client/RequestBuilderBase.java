@@ -33,7 +33,7 @@ import java.util.Map.Entry;
  *
  * @param <T>
  */
-abstract class RequestBuilderBase<T extends RequestBuilderBase<T>> {
+public abstract class RequestBuilderBase<T extends RequestBuilderBase<T>> {
 
     private static final class RequestImpl implements Request {
         private RequestType type;
@@ -194,19 +194,23 @@ abstract class RequestBuilderBase<T extends RequestBuilderBase<T>> {
     }
 
     private final Class<T> derived;
-    private final RequestImpl request;
+    protected final RequestImpl request;
 
-    RequestBuilderBase(Class<T> derived, RequestType type) {
+    protected RequestBuilderBase(Class<T> derived, RequestType type) {
         this.derived = derived;
         request = new RequestImpl();
         request.type = type;
     }
 
-    RequestBuilderBase(Class<T> derived, Request prototype) {
+    protected RequestBuilderBase(Class<T> derived, Request prototype) {
         this.derived = derived;
         request = new RequestImpl(prototype);
     }
 
+    protected String getBaseUrl() {
+        return request.url;
+    }
+    
     public T setUrl(String url) {
         request.url = url;
         return derived.cast(this);

@@ -138,6 +138,13 @@ public class AsyncHttpClient {
     private final AsyncHttpClientConfig config;
 
     /**
+     * Default signature calculator to use for all requests constructed by this client instance.
+     * 
+     * @since 1.1
+     */
+    protected SignatureCalculator signatureCalculator;
+    
+    /**
      * Create a new HTTP Asynchronous Client using the default {@link AsyncHttpClientConfig} configuration. The
      * default {@link AsyncHttpProvider} will be used ({@link com.ning.http.client.providers.NettyAsyncHttpProvider}
      */
@@ -186,6 +193,14 @@ public class AsyncHttpClient {
     }
 
     public class BoundRequestBuilder extends RequestBuilderBase<BoundRequestBuilder> {
+        /**
+         * Calculator used for calculating request signature for the request being
+         * built, if any.
+         * 
+         * @since 1.1
+         */
+        protected SignatureCalculator signatureCalculator;
+
         private BoundRequestBuilder(RequestType type) {
             super(BoundRequestBuilder.class, type);
         }
@@ -233,6 +248,12 @@ public class AsyncHttpClient {
 
         @Override
         public Request build() {
+            /* Let's first calculate and inject signature, before finalizing actual build
+             * (order does not matter with current implementation but may in future)
+             */
+            if (signatureCalculator != null) {
+                signatureCalculator.calculateAndAddSignature(getBaseUrl(), request, this);
+            }
             return super.build();
         }
 
@@ -295,10 +316,15 @@ public class AsyncHttpClient {
         public BoundRequestBuilder setVirtualHost(String virtualHost) {
             return super.setVirtualHost(virtualHost);
         }
+
+        public BoundRequestBuilder setSignatureCalculator(SignatureCalculator signatureCalculator) {
+            this.signatureCalculator = signatureCalculator;
+            return this;
+        }
     }
 
     /**
-     * Return the asynchronouys {@link com.ning.http.client.AsyncHttpProvider}
+     * Return the asynchronous {@link com.ning.http.client.AsyncHttpProvider}
      * @return an {@link com.ning.http.client.AsyncHttpProvider}
      */
     public AsyncHttpProvider<?> getProvider() {
@@ -327,12 +353,22 @@ public class AsyncHttpClient {
     }
 
     /**
+     * Set default signature calculator to use for requests build by this client instance
+     * 
+     * @param signatureCalculator
+     * @since 1.1
+     */
+    public void setSignatureCalculator(SignatureCalculator signatureCalculator) {
+        this.signatureCalculator = signatureCalculator;
+    }
+    
+    /**
      * Prepare an HTTP client GET request.
      * @param url A well formed URL.
      * @return {@link RequestBuilder}
      */
     public BoundRequestBuilder prepareGet(String url) {
-        return new BoundRequestBuilder(RequestType.GET).setUrl(url);
+        return requestBuilder(RequestType.GET, url);
     }
 
     /**
@@ -341,7 +377,7 @@ public class AsyncHttpClient {
      * @return {@link RequestBuilder}
      */
     public BoundRequestBuilder prepareOptions(String url) {
-        return new BoundRequestBuilder(RequestType.OPTIONS).setUrl(url);
+        return requestBuilder(RequestType.OPTIONS, url);
     }
 
     /**
@@ -350,7 +386,7 @@ public class AsyncHttpClient {
      * @return {@link RequestBuilder}
      */
     public BoundRequestBuilder prepareHead(String url) {
-        return new BoundRequestBuilder(RequestType.HEAD).setUrl(url);
+        return requestBuilder(RequestType.HEAD, url);
     }
 
     /**
@@ -359,7 +395,7 @@ public class AsyncHttpClient {
      * @return {@link RequestBuilder}
      */
     public BoundRequestBuilder preparePost(String url) {
-        return new BoundRequestBuilder(RequestType.POST).setUrl(url);
+        return requestBuilder(RequestType.POST, url);
     }
 
     /**
@@ -368,7 +404,7 @@ public class AsyncHttpClient {
      * @return {@link RequestBuilder}
      */
     public BoundRequestBuilder preparePut(String url) {
-        return new BoundRequestBuilder(RequestType.PUT).setUrl(url);
+        return requestBuilder(RequestType.PUT, url);
     }
 
     /**
@@ -377,7 +413,7 @@ public class AsyncHttpClient {
      * @return {@link RequestBuilder}
      */
     public BoundRequestBuilder prepareDelete(String url) {
-        return new BoundRequestBuilder(RequestType.DELETE).setUrl(url);
+        return requestBuilder(RequestType.DELETE, url);
     }
 
     /**
@@ -386,7 +422,7 @@ public class AsyncHttpClient {
      * @return {@link RequestBuilder}
      */
     public BoundRequestBuilder prepareRequest(Request request) {
-        return new BoundRequestBuilder(request);
+        return requestBuilder(request);
     }
 
     /**
@@ -421,5 +457,13 @@ public class AsyncHttpClient {
         } catch (Throwable t){
             throw new RuntimeException(t);
         }
+    }
+
+    protected BoundRequestBuilder requestBuilder(RequestType requestType, String url) {
+        return new BoundRequestBuilder(requestType).setUrl(url).setSignatureCalculator(signatureCalculator);
+    }
+
+    protected BoundRequestBuilder requestBuilder(Request prototype) {
+        return new BoundRequestBuilder(prototype).setSignatureCalculator(signatureCalculator);
     }
 }
