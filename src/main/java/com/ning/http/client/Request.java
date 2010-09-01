@@ -30,7 +30,17 @@ public interface Request {
 
     public RequestType getType();
 
+    /**
+     * Return the decoded url
+     * @return  the decoded url
+     */
     public String getUrl();
+
+    /**
+     * Return the undecoded url
+     * @return the undecoded url
+     */
+    public String getRawUrl();
 
     public FluentCaseInsensitiveStringsMap getHeaders();
 
@@ -53,4 +63,6 @@ public interface Request {
     public String getVirtualHost();
 
     public FluentStringsMap getQueryParams();
+
+    public ProxyServer getProxyServer();
 }
