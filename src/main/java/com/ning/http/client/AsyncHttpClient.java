@@ -196,11 +196,15 @@ public class AsyncHttpClient {
         /**
          * Calculator used for calculating request signature for the request being
          * built, if any.
-         * 
-         * @since 1.1
          */
         protected SignatureCalculator signatureCalculator;
 
+        /**
+         * URL used as the base, not including possibly query parameters. Needed for
+         * signature calculation
+         */
+        protected String baseURL;
+        
         private BoundRequestBuilder(RequestType type) {
             super(BoundRequestBuilder.class, type);
         }
@@ -252,7 +256,13 @@ public class AsyncHttpClient {
              * (order does not matter with current implementation but may in future)
              */
             if (signatureCalculator != null) {
-                signatureCalculator.calculateAndAddSignature(getBaseUrl(), request, this);
+                String url = baseURL;
+                // Should not include query parameters, ensure:
+                int i = url.indexOf('?');
+                if (i >= 0) {
+                    url = url.substring(0, i);
+                }
+                signatureCalculator.calculateAndAddSignature(baseURL, request, this);
             }
             return super.build();
         }
@@ -309,6 +319,7 @@ public class AsyncHttpClient {
 
         @Override
         public BoundRequestBuilder setUrl(String url) {
+            baseURL = url;
             return super.setUrl(url);
         }
 
@@ -354,9 +365,6 @@ public class AsyncHttpClient {
 
     /**
      * Set default signature calculator to use for requests build by this client instance
-     * 
-     * @param signatureCalculator
-     * @since 1.1
      */
     public void setSignatureCalculator(SignatureCalculator signatureCalculator) {
         this.signatureCalculator = signatureCalculator;

@@ -35,7 +35,7 @@ import java.util.Map.Entry;
  *
  * @param <T>
  */
-public abstract class RequestBuilderBase<T extends RequestBuilderBase<T>> {
+abstract class RequestBuilderBase<T extends RequestBuilderBase<T>> {
 
     private static final class RequestImpl implements Request {
         private RequestType type;
@@ -231,10 +231,6 @@ public abstract class RequestBuilderBase<T extends RequestBuilderBase<T>> {
     protected RequestBuilderBase(Class<T> derived, Request prototype) {
         this.derived = derived;
         request = new RequestImpl(prototype);
-    }
-
-    protected String getBaseUrl() {
-        return request.url;
     }
     
     public T setUrl(String url) {
