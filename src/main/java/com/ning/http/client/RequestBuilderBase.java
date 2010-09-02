@@ -35,7 +35,7 @@ import java.util.Map.Entry;
  *
  * @param <T>
  */
-abstract class RequestBuilderBase<T extends RequestBuilderBase<T>> {
+public abstract class RequestBuilderBase<T extends RequestBuilderBase<T>> {
 
     private static final class RequestImpl implements Request {
         private RequestType type;
