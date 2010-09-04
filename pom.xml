@@ -74,6 +74,15 @@
             <artifactId>log4j</artifactId>
             <version>1.2.13</version>
         </dependency>
+        <dependency>
+            <!-- for JRE requirement check annotation -->
+            <groupId>org.jvnet</groupId>
+            <artifactId>animal-sniffer-annotation</artifactId>
+            <version>1.0</version>
+            <optional>true</optional>
+            <!-- no need to have this at runtime -->
+        </dependency>
+
 
         <!-- Test dependencies -->
         <dependency>
@@ -134,7 +143,7 @@
                                     <version>2.0.9</version>
                                 </requireMavenVersion>
                                 <requireJavaVersion>
-                                    <version>1.5</version>
+                                    <version>[1.6.0,]</version>
                                 </requireJavaVersion>
                             </rules>
                         </configuration>
@@ -150,6 +159,28 @@
                     <encoding>UTF-8</encoding>
                     <maxmem>1024m</maxmem>
                 </configuration>
+            </plugin>
+            <plugin>
+                <!-- make sure our code doesn't have 1.6 dependencies except where we know it -->
+                <groupId>org.jvnet</groupId>
+                <artifactId>animal-sniffer</artifactId>
+                <version>1.2</version>
+                <configuration>
+                    <signature>
+                        <groupId>org.jvnet.animal-sniffer</groupId>
+                        <artifactId>java1.5</artifactId>
+                        <version>1.0</version>
+                    </signature>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>dont-let-unwanted-apis-to-sneak-in</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -181,8 +212,7 @@
                 <artifactId>maven-javadoc-plugin</artifactId>
                 <version>2.5</version>
                 <configuration>
-                    <source>1.6</source>
-                    <target>1.6</target>
+                    <source>1.5</source>
                     <encoding>UTF-8</encoding>
                     <maxmemory>1g</maxmemory>
                     <links>
