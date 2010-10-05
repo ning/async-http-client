@@ -15,20 +15,20 @@
  */
 package com.ning.http.client;
 
-import com.google.common.collect.LinkedListMultimap;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.Multimaps;
 import com.ning.http.client.Request.EntityWriter;
-import com.ning.http.collection.Pair;
-import com.ning.http.url.Url;
 
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 /**
  * Builder for {@link Request}
@@ -39,18 +39,19 @@ abstract class RequestBuilderBase<T extends RequestBuilderBase<T>> {
 
     private static final class RequestImpl implements Request {
         private RequestType type;
-        private String url;
-        private Headers headers = new Headers();
+        private String url = null;
+        private FluentCaseInsensitiveStringsMap headers = new FluentCaseInsensitiveStringsMap();
         private Collection<Cookie> cookies = new ArrayList<Cookie>();
         private byte[] byteData;
         private String stringData;
         private InputStream streamData;
         private EntityWriter entityWriter;
-        private Multimap<String, String> params;
+        private FluentStringsMap params;
         private List<Part> parts;
         private String virtualHost;
         private long length = -1;
-        public Multimap<String, String> queryParams;
+        public FluentStringsMap queryParams;
+        public ProxyServer proxyServer;
 
         public RequestImpl() {
         }
@@ -59,47 +60,80 @@ abstract class RequestBuilderBase<T extends RequestBuilderBase<T>> {
             if (prototype != null) {
                 this.type = prototype.getType();
                 this.url = prototype.getUrl();
-                this.headers = new Headers(prototype.getHeaders());
+                this.headers = new FluentCaseInsensitiveStringsMap(prototype.getHeaders());
                 this.cookies = new ArrayList<Cookie>(prototype.getCookies());
                 this.byteData = prototype.getByteData();
                 this.stringData = prototype.getStringData();
                 this.streamData = prototype.getStreamData();
                 this.entityWriter = prototype.getEntityWriter();
-                this.params = (prototype.getParams() == null ? null :  LinkedListMultimap.create(prototype.getParams()));
-                this.queryParams = (prototype.getQueryParams() == null ? null :  LinkedListMultimap.create(prototype.getQueryParams()));
+                this.params = (prototype.getParams() == null ? null : new FluentStringsMap(prototype.getParams()));
+                this.queryParams = (prototype.getQueryParams() == null ? null : new FluentStringsMap(prototype.getQueryParams()));
                 this.parts = (prototype.getParts() == null ? null : new ArrayList<Part>(prototype.getParts()));
                 this.virtualHost = prototype.getVirtualHost();
                 this.length = prototype.getLength();
+                this.proxyServer = prototype.getProxyServer();
             }
         }
 
         /* @Override */
+
         public RequestType getType() {
             return type;
         }
 
         /* @Override */
+
         public String getUrl() {
+
+            if (url == null) throw new NullPointerException("url is null");
+
+            String uri;
             try {
-                Url url = Url.valueOf(this.url);
+                uri = URI.create(url).toURL().toString();
+            } catch (MalformedURLException e) {
+                throw new IllegalStateException("Illegal URL", e);
+            }
 
-                if (queryParams != null) {
+            if (queryParams != null) {
 
-                    for (Map.Entry<String, String> entry : queryParams.entries()) {
-                        url.addParameter(entry.getKey(), entry.getValue());
+                StringBuilder builder = new StringBuilder();
+                if (!url.substring(8).contains("/")) { // no other "/" than http[s]:// -> http://localhost:1234
+                    builder.append("/");
+                }
+                builder.append(url.contains("?") ? "&" : "?"); // in case we have some query string in url already
+
+                for (Iterator<Entry<String, List<String>>> i = queryParams.iterator(); i.hasNext();) {
+                    Map.Entry<String, List<String>> param = i.next();
+                    String name = param.getKey();
+                    for (Iterator<String> j = param.getValue().iterator(); j.hasNext();) {
+                        String value = j.next();
+                        builder.append(name);
+                        if (value != null) {
+                            builder.append('=');
+                            try {
+                                builder.append(URLEncoder.encode(value, "UTF-8").replace("+", "%20"));
+                            }
+                            catch (UnsupportedEncodingException e) {
+                                throw new AssertionError("UTF-8 encoding not found");
+                            }
+                        }
+                        if (j.hasNext()) {
+                            builder.append('&');
+                        }
+                    }
+                    if (i.hasNext()) {
+                        builder.append('&');
                     }
                 }
+                uri += builder.toString();
+            }
+            return uri;
 
-                return url.toString();
-            }
-            catch (MalformedURLException e) {
-                throw new IllegalArgumentException("Illegal URL", e);
-            }
         }
 
         /* @Override */
-        public Headers getHeaders() {
-            return Headers.unmodifiableHeaders(headers);
+        public FluentCaseInsensitiveStringsMap getHeaders() {
+            return headers;
         }
 
         /* @Override */
@@ -133,13 +167,13 @@ abstract class RequestBuilderBase<T extends RequestBuilderBase<T>> {
         }
 
         /* @Override */
-        public Multimap<String, String> getParams() {
-            return params == null ? null : Multimaps.unmodifiableMultimap(params);
+        public FluentStringsMap getParams() {
+            return params;
         }
 
         /* @Override */
         public List<Part> getParts() {
-            return parts == null ? null : Collections.unmodifiableList(parts);
+            return parts;
         }
 
         /* @Override */
@@ -147,9 +181,12 @@ abstract class RequestBuilderBase<T extends RequestBuilderBase<T>> {
             return virtualHost;
         }
 
-        public Multimap<String, String> getQueryParams()
-        {
-            return queryParams == null ? null : Multimaps.unmodifiableMultimap(queryParams);
+        public FluentStringsMap getQueryParams() {
+            return queryParams;
+        }
+
+        public ProxyServer getProxyServer() {
+            return proxyServer;
         }
 
         @Override
@@ -158,11 +195,11 @@ abstract class RequestBuilderBase<T extends RequestBuilderBase<T>> {
 
             sb.append("\t");
             sb.append(type);
-            for (Pair<String, String> header : headers) {
+            for (String name : headers.keySet()) {
                 sb.append("\t");
-                sb.append(header.getFirst());
+                sb.append(name);
                 sb.append(":");
-                sb.append(header.getSecond());
+                sb.append(headers.getJoinedValue(name, ", "));
             }
 
             return sb.toString();
@@ -203,8 +240,13 @@ abstract class RequestBuilderBase<T extends RequestBuilderBase<T>> {
         return derived.cast(this);
     }
 
-    public T setHeaders(Headers headers) {
-        request.headers = (headers == null ? new Headers() : new Headers(headers));
+    public T setHeaders(FluentCaseInsensitiveStringsMap headers) {
+        request.headers = (headers == null ? new FluentCaseInsensitiveStringsMap() : new FluentCaseInsensitiveStringsMap(headers));
+        return derived.cast(this);
+    }
+
+    public T setHeaders(Map<String, Collection<String>> headers) {
+        request.headers = (headers == null ? new FluentCaseInsensitiveStringsMap() : new FluentCaseInsensitiveStringsMap(headers));
         return derived.cast(this);
     }
 
@@ -218,11 +260,11 @@ abstract class RequestBuilderBase<T extends RequestBuilderBase<T>> {
     }
 
     private void resetNonMultipartData() {
-        request.byteData     = null;
-        request.stringData   = null;
-        request.streamData   = null;
+        request.byteData = null;
+        request.stringData = null;
+        request.streamData = null;
         request.entityWriter = null;
-        request.length       = -1;
+        request.length = -1;
     }
 
     private void resetMultipartData() {
@@ -274,15 +316,15 @@ abstract class RequestBuilderBase<T extends RequestBuilderBase<T>> {
         resetNonMultipartData();
         resetMultipartData();
         request.entityWriter = dataWriter;
-        request.length       = length;
+        request.length = length;
         return derived.cast(this);
     }
 
     public T addQueryParameter(String name, String value) {
         if (request.queryParams == null) {
-            request.queryParams = LinkedListMultimap.create();
+            request.queryParams = new FluentStringsMap();
         }
-        request.queryParams.put(name, value);
+        request.queryParams.add(name, value);
         return derived.cast(this);
     }
 
@@ -293,29 +335,29 @@ abstract class RequestBuilderBase<T extends RequestBuilderBase<T>> {
         resetNonMultipartData();
         resetMultipartData();
         if (request.params == null) {
-            request.params =  LinkedListMultimap.create();
+            request.params = new FluentStringsMap();
         }
-        request.params.put(key, value);
+        request.params.add(key, value);
         return derived.cast(this);
     }
 
-    public T setParameters(Multimap<String, String> parameters) throws IllegalArgumentException {
+    public T setParameters(FluentStringsMap parameters) throws IllegalArgumentException {
         if ((request.type != RequestType.POST) && (request.type != RequestType.PUT)) {
             throw new IllegalArgumentException("Request type has to POST or PUT for form parameters");
         }
         resetNonMultipartData();
         resetMultipartData();
-        request.params = LinkedListMultimap.create(parameters);
+        request.params = new FluentStringsMap(parameters);
         return derived.cast(this);
     }
 
-    public T setParameters(Map<String, String> parameters) throws IllegalArgumentException {
+    public T setParameters(Map<String, Collection<String>> parameters) throws IllegalArgumentException {
         if ((request.type != RequestType.POST) && (request.type != RequestType.PUT)) {
             throw new IllegalArgumentException("Request type has to POST or PUT for form parameters");
         }
         resetNonMultipartData();
         resetMultipartData();
-        request.params = LinkedListMultimap.create(Multimaps.forMap(parameters));
+        request.params = new FluentStringsMap(parameters);
         return derived.cast(this);
     }
 
@@ -332,10 +374,16 @@ abstract class RequestBuilderBase<T extends RequestBuilderBase<T>> {
         return derived.cast(this);
     }
 
+    public T setProxyServer(ProxyServer proxyServer) {
+        request.proxyServer = proxyServer;
+        return derived.cast(this);
+    }
+
     public Request build() {
         if ((request.length < 0) && (request.streamData == null) &&
-            ((request.type == RequestType.POST) || (request.type == RequestType.PUT))) {
-            String contentLength = request.headers.getHeaderValue("Content-Length");
+                ((request.type == RequestType.POST) || (request.type == RequestType.PUT))) {
+            // can't concatenate content-length
+            String contentLength = request.headers.getFirstValue("Content-Length");
 
             if (contentLength != null) {
                 try {

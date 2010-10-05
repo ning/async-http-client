@@ -15,15 +15,15 @@
  */
 package com.ning.http.client;
 
-import com.ning.http.url.Url;
+import java.net.URI;
 
 /**
  * A callback class used when an HTTP response body is received.
  */
-public abstract class HttpResponseBodyPart<R> extends HttpContent<R> {
+public abstract class HttpResponseBodyPart extends HttpContent {
 
-    public HttpResponseBodyPart(Url url, R response, AsyncHttpProvider<R> provider) {
-        super(url, response, provider);
+    public HttpResponseBodyPart(URI uri, AsyncHttpProvider<?> provider) {
+        super(uri, provider);
     }
 
     /**

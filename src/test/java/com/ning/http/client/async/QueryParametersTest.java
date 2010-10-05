@@ -22,8 +22,6 @@ import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.testng.annotations.Test;
 
 import javax.servlet.ServletException;
-import javax.servlet.ServletInputStream;
-import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -36,49 +34,51 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
 /**
- * Tests POST request with Query String.
+ * Testing query parameters support.
  *
  * @author Hubert Iwaniuk
  */
-public class PostWithQSTest extends AbstractBasicTest {
-
-    /** POST with QS server part. */
-    private class PostWithQSHandler extends AbstractHandler {
+public class QueryParametersTest extends AbstractBasicTest {
+    private class QueryStringHandler extends AbstractHandler {
         public void handle(String s,
                            Request r,
                            HttpServletRequest request,
                            HttpServletResponse response) throws IOException, ServletException {
-            if ("POST".equalsIgnoreCase(request.getMethod())) {
+            if ("GET".equalsIgnoreCase(request.getMethod())) {
                 String qs = request.getQueryString();
-                if (qs != null && !qs.equals("") && request.getContentLength() == 3) {
-                    ServletInputStream is = request.getInputStream();
+                if (qs != null && !qs.equals("")) {
+                    for (String qnv : qs.split("&")) {
+                        String nv[] = qnv.split("=");
+                        response.addHeader(nv[0], nv[1]);
+                    }
                     response.setStatus(HttpServletResponse.SC_OK);
-                    byte buf[] = new byte[is.available()];
-                    is.readLine(buf, 0, is.available());
-                    ServletOutputStream os = response.getOutputStream();
-                    os.println(new String(buf));
-                    os.flush();
-                    os.close();
                 } else {
                     response.sendError(HttpServletResponse.SC_NOT_ACCEPTABLE);
                 }
             } else { // this handler is to handle POST request
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
             }
+            r.setHandled(true);
         }
-    }
-
-    @Test(groups = "standalone")
-    public void postWithQS() throws IOException, ExecutionException, TimeoutException, InterruptedException {
-        AsyncHttpClient client = new AsyncHttpClient();
-        Future<Response> f = client.preparePost("http://127.0.0.1:" + port1 + "/?a=b").setBody("abc".getBytes()).execute();
-        Response resp = f.get(3, TimeUnit.SECONDS);
-        assertNotNull(resp);
-        assertEquals(resp.getStatusCode(), HttpServletResponse.SC_OK);
     }
 
     @Override
     public AbstractHandler configureHandler() throws Exception {
-        return new PostWithQSHandler();
+        return new QueryStringHandler();
+    }
+
+    @Test(groups = "standalone")
+    public void testQueryParameters() throws IOException, ExecutionException, TimeoutException, InterruptedException {
+        AsyncHttpClient client = new AsyncHttpClient();
+        Future<Response> f = client
+                .prepareGet("http://127.0.0.1:" + port1)
+                .addQueryParameter("a", "1")
+                .addQueryParameter("b", "2")
+                .execute();
+        Response resp = f.get(3, TimeUnit.SECONDS);
+        assertNotNull(resp);
+        assertEquals(resp.getStatusCode(), HttpServletResponse.SC_OK);
+        assertEquals(resp.getHeader("a"), "1");
+        assertEquals(resp.getHeader("b"), "2");
     }
 }

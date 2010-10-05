@@ -17,25 +17,29 @@ package com.ning.http.client.providers;
 
 import com.ning.http.client.AsyncHttpProvider;
 import com.ning.http.client.HttpResponseBodyPart;
-import com.ning.http.url.Url;
 import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpResponse;
+
+import java.net.URI;
 
 /**
  * A callback class used when an HTTP response body is received.
  */
-public class ResponseBodyPart extends HttpResponseBodyPart<HttpResponse> {
+public class ResponseBodyPart extends HttpResponseBodyPart {
 
     private final HttpChunk chunk;
+    private final HttpResponse response;
 
-    public ResponseBodyPart(Url url, HttpResponse response, AsyncHttpProvider<HttpResponse> provider) {
-        super(url, response, provider);
+    public ResponseBodyPart(URI uri, HttpResponse response, AsyncHttpProvider<HttpResponse> provider) {
+        super(uri, provider);
         this.chunk = null;
+        this.response = response;
     }
 
-    public ResponseBodyPart(Url url,HttpResponse response, AsyncHttpProvider<HttpResponse>  provider, HttpChunk chunk) {
-        super(url, response, provider);
+    public  ResponseBodyPart(URI uri, HttpResponse response, AsyncHttpProvider<HttpResponse>  provider, HttpChunk chunk) {
+        super(uri, provider);
         this.chunk = chunk;
+        this.response = response;        
     }
 
     /**

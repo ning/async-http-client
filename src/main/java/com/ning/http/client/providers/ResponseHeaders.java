@@ -16,37 +16,38 @@
 package com.ning.http.client.providers;
 
 import com.ning.http.client.AsyncHttpProvider;
-import com.ning.http.client.Headers;
+import com.ning.http.client.FluentCaseInsensitiveStringsMap;
 import com.ning.http.client.HttpResponseHeaders;
-import com.ning.http.collection.Pair;
-import com.ning.http.url.Url;
 import org.jboss.netty.handler.codec.http.HttpChunkTrailer;
 import org.jboss.netty.handler.codec.http.HttpResponse;
+
+import java.net.URI;
 
 /**
  * A class that represent the HTTP headers.
  */
-public class ResponseHeaders extends HttpResponseHeaders<HttpResponse> {
+public class ResponseHeaders extends HttpResponseHeaders {
 
     private final HttpChunkTrailer trailingHeaders;
+    private final HttpResponse response;
+    private final FluentCaseInsensitiveStringsMap headers;
 
-    public ResponseHeaders(Url url, HttpResponse response, AsyncHttpProvider<HttpResponse>  provider) {
-        super(url, response, provider, false);
+    public ResponseHeaders(URI uri, HttpResponse response, AsyncHttpProvider<HttpResponse>  provider) {
+        super(uri, provider, false);
         this.trailingHeaders = null;
-
+        this.response = response;
+        headers = computerHeaders();
     }
 
-    public ResponseHeaders(Url url,HttpResponse response, AsyncHttpProvider<HttpResponse>  provider, HttpChunkTrailer traillingHeaders) {
-        super(url, response, provider, true);
+    public ResponseHeaders(URI uri,HttpResponse response, AsyncHttpProvider<HttpResponse>  provider, HttpChunkTrailer traillingHeaders) {
+        super(uri, provider, true);
         this.trailingHeaders = traillingHeaders;
+        this.response = response;
+        headers = computerHeaders();
     }
 
-    /**
-     * Return the HTTP header
-     * @return an {@link com.ning.http.client.Headers}
-     */
-    public Headers getHeaders() {
-        Headers h = new Headers();
+    private FluentCaseInsensitiveStringsMap computerHeaders() {
+        FluentCaseInsensitiveStringsMap h = new FluentCaseInsensitiveStringsMap();
         for (String s : response.getHeaderNames()) {
             for (String header : response.getHeaders(s)) {
                 h.add(s, header);
@@ -61,7 +62,15 @@ public class ResponseHeaders extends HttpResponseHeaders<HttpResponse> {
             }
         }
 
-        return Headers.unmodifiableHeaders(h);
+        return h;
     }
 
+    /**
+     * Return the HTTP header
+     * @return an {@link com.ning.http.client.FluentCaseInsensitiveStringsMap}
+     */
+    @Override
+    public FluentCaseInsensitiveStringsMap getHeaders() {
+        return headers;
+    }
 }

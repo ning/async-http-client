@@ -52,9 +52,9 @@ public class MultipleHeaderTest {
     private ExecutorService executorService;
     private ServerSocket serverSocket;
     private static final int PORT = 2929;
-    private Future<Void> voidFuture;
+    private Future voidFuture;
 
-    @Test
+    @Test(groups = "standalone")
     public void testMultipleOtherHeaders()
             throws IOException, ExecutionException, TimeoutException, InterruptedException {
         final String[] xffHeaders = new String[]{null, null};
@@ -62,22 +62,22 @@ public class MultipleHeaderTest {
         AsyncHttpClient ahc = new AsyncHttpClient();
         Request req = new RequestBuilder(RequestType.GET).setUrl("http://localhost:" + PORT + "/MultiOther").build();
         final CountDownLatch latch = new CountDownLatch(1);
-        ahc.executeRequest(req, new AsyncHandler<Void>() {
+        ahc.executeRequest(req, new AsyncHandler() {
             public void onThrowable(Throwable t) {
                 t.printStackTrace(System.out);
             }
 
-            public STATE onBodyPartReceived(HttpResponseBodyPart<Void> objectHttpResponseBodyPart) throws Exception {
+            public STATE onBodyPartReceived(HttpResponseBodyPart objectHttpResponseBodyPart) throws Exception {
                 return STATE.CONTINUE;
             }
 
-            public STATE onStatusReceived(HttpResponseStatus<Void> objectHttpResponseStatus) throws Exception {
+            public STATE onStatusReceived(HttpResponseStatus objectHttpResponseStatus) throws Exception {
                 return STATE.CONTINUE;
             }
 
-            public STATE onHeadersReceived(HttpResponseHeaders<Void> response) throws Exception {
+            public STATE onHeadersReceived(HttpResponseHeaders response) throws Exception {
                 int i = 0;
-                for (String header : response.getHeaders().getHeaderValues("X-Forwarded-For")) {
+                for (String header : response.getHeaders().get("X-Forwarded-For")) {
                     xffHeaders[i++] = header;
                 }
                 latch.countDown();
@@ -99,7 +99,7 @@ public class MultipleHeaderTest {
     }
 
 
-    @Test
+    @Test(groups = "standalone")
     public void testMultipleEntityHeaders()
             throws IOException, ExecutionException, TimeoutException, InterruptedException {
         final String[] clHeaders = new String[]{null, null};
@@ -107,23 +107,23 @@ public class MultipleHeaderTest {
         AsyncHttpClient ahc = new AsyncHttpClient();
         Request req = new RequestBuilder(RequestType.GET).setUrl("http://localhost:" + PORT + "/MultiEnt").build();
         final CountDownLatch latch = new CountDownLatch(1);
-        ahc.executeRequest(req, new AsyncHandler<Void>() {
+        ahc.executeRequest(req, new AsyncHandler() {
             public void onThrowable(Throwable t) {
                 t.printStackTrace(System.out);
             }
 
-            public STATE onBodyPartReceived(HttpResponseBodyPart<Void> objectHttpResponseBodyPart) throws Exception {
+            public STATE onBodyPartReceived(HttpResponseBodyPart objectHttpResponseBodyPart) throws Exception {
                 return STATE.CONTINUE;
             }
 
-            public STATE onStatusReceived(HttpResponseStatus<Void> objectHttpResponseStatus) throws Exception {
+            public STATE onStatusReceived(HttpResponseStatus objectHttpResponseStatus) throws Exception {
                 return STATE.CONTINUE;
             }
 
-            public STATE onHeadersReceived(HttpResponseHeaders<Void> response) throws Exception {
+            public STATE onHeadersReceived(HttpResponseHeaders response) throws Exception {
                 try {
                     int i = 0;
-                    for (String header : response.getHeaders().getHeaderValues("Content-Length")) {
+                    for (String header : response.getHeaders().get("Content-Length")) {
                         clHeaders[i++] = header;
                     }
                 } finally {
@@ -151,7 +151,7 @@ public class MultipleHeaderTest {
         BasicConfigurator.configure();
         serverSocket = new ServerSocket(PORT);
         executorService = Executors.newFixedThreadPool(1);
-        voidFuture = executorService.submit(new Callable<Void>() {
+        voidFuture = executorService.submit(new Callable() {
             public Void call() throws Exception {
                 Socket socket;
                 while ((socket = serverSocket.accept()) != null) {

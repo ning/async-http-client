@@ -15,31 +15,31 @@
  */
 package com.ning.http.client;
 
-import com.ning.http.url.Url;
+import java.net.URI;
 
 /**
  * A class that represent the HTTP headers.
  */
-public abstract class HttpResponseHeaders<R> extends HttpContent<R> {
+public abstract class HttpResponseHeaders extends HttpContent {
 
     private final boolean traillingHeaders;
 
-    public HttpResponseHeaders(Url url, R response, AsyncHttpProvider<R> provider) {
-        super(url, response, provider);
+    public HttpResponseHeaders(URI uri, AsyncHttpProvider<?> provider) {
+        super(uri, provider);
         this.traillingHeaders = false;
     }
 
-    public HttpResponseHeaders(Url url, R response, AsyncHttpProvider<R> provider, boolean traillingHeaders) {
-        super(url, response, provider);
+    public HttpResponseHeaders(URI uri, AsyncHttpProvider<?> provider, boolean traillingHeaders) {
+        super(uri, provider);
         this.traillingHeaders = traillingHeaders;
 
     }
 
     /**
      * Return the HTTP header
-     * @return an {@link Headers}
+     * @return an {@link FluentCaseInsensitiveStringsMap}
      */
-    abstract public Headers getHeaders();
+    abstract public FluentCaseInsensitiveStringsMap getHeaders();
 
     /**
      * Return true is headers has been received after the response body.

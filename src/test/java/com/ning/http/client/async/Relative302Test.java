@@ -19,10 +19,11 @@ import com.ning.http.client.AsyncHttpClient;
 import com.ning.http.client.AsyncHttpClientConfig;
 import com.ning.http.client.Response;
 import org.apache.log4j.BasicConfigurator;
-import org.mortbay.jetty.Connector;
-import org.mortbay.jetty.Server;
-import org.mortbay.jetty.handler.AbstractHandler;
-import org.mortbay.jetty.nio.SelectChannelConnector;
+import org.eclipse.jetty.server.Connector;
+import org.eclipse.jetty.server.Request;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.handler.AbstractHandler;
+import org.eclipse.jetty.server.nio.SelectChannelConnector;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -31,6 +32,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.ConnectException;
+import java.net.URI;
 import java.util.Enumeration;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -46,9 +48,9 @@ public class Relative302Test extends AbstractBasicTest {
 
 
         public void handle(String s,
+                           Request r,
                            HttpServletRequest httpRequest,
-                           HttpServletResponse httpResponse,
-                           int i) throws IOException, ServletException {
+                           HttpServletResponse httpResponse) throws IOException, ServletException {
 
                 String param;
                 httpResponse.setContentType("text/html; charset=utf-8");
@@ -75,10 +77,13 @@ public class Relative302Test extends AbstractBasicTest {
         server = new Server();
         BasicConfigurator.configure();
 
+        port1 = findFreePort();
+        port2 = findFreePort();
+
         Connector listener = new SelectChannelConnector();
 
         listener.setHost("127.0.0.1");
-        listener.setPort(PORT);
+        listener.setPort(port1);
         server.addConnector(listener);
 
         server.setHandler(new Relative302Handler());
@@ -86,23 +91,41 @@ public class Relative302Test extends AbstractBasicTest {
         log.info("Local HTTP server started successfully");
     }
 
-    @Test
+    @Test(groups = "online")
     public void redirected302Test() throws Throwable {
         isSet.getAndSet(false);
         AsyncHttpClientConfig cg = new AsyncHttpClientConfig.Builder().setFollowRedirects(true).build();
         AsyncHttpClient c = new AsyncHttpClient(cg);
 
         // once
-        Response response = c.prepareGet(TARGET_URL)
+        Response response = c.prepareGet(getTargetUrl())
                 .setHeader("X-redirect", "http://www.microsoft.com/")
                 .execute().get();
 
         assertNotNull(response);
         assertEquals(response.getStatusCode(),200);
-        assertEquals(response.getUrl().getBaseUrl(), "http://www.microsoft.com");
+
+        assertEquals(getBaseUrl(response.getUri()), "http://www.microsoft.com:80");
     }
 
-    @Test
+    private String getBaseUrl(URI uri){
+        String url = uri.toString();
+        int port = uri.getPort();
+        if (port == -1) {
+            port = getPort(uri);
+            url = url.substring(0,url.length() -1) + ":" + port;
+        }
+        return url.substring(0,url.lastIndexOf(":") + String.valueOf(port).length() +1);
+    }
+
+    private static int getPort(URI uri) {
+        int port = uri.getPort();
+        if (port == -1)
+            port = uri.getScheme().equals("http")? 80: 443 ;
+        return port;
+    }
+
+    @Test(groups = "standalone")
     public void redirected302InvalidTest() throws Throwable {
         isSet.getAndSet(false);
         AsyncHttpClientConfig cg = new AsyncHttpClientConfig.Builder().setFollowRedirects(true).build();
@@ -110,8 +133,8 @@ public class Relative302Test extends AbstractBasicTest {
 
         // If the test hit a proxy, no ConnectException will be thrown and instead of 404 will be returned.
         try {
-            Response response = c.preparePost(TARGET_URL)
-                    .setHeader("X-redirect", "http://www.grroooogle.com/")
+            Response response = c.preparePost(getTargetUrl())
+                    .setHeader("X-redirect", String.format("http://127.0.0.1:%d/", port2))
                     .execute().get();
 
             assertNotNull(response);
@@ -121,18 +144,18 @@ public class Relative302Test extends AbstractBasicTest {
         }
     }
 
-    @Test
+    @Test(groups = "standalone")
     public void relativeLocationUrl() throws Throwable {
         isSet.getAndSet(false);
         
         AsyncHttpClientConfig cg = new AsyncHttpClientConfig.Builder().setFollowRedirects(true).build();
         AsyncHttpClient c = new AsyncHttpClient(cg);
 
-        Response response = c.preparePost(TARGET_URL)
+        Response response = c.preparePost(getTargetUrl())
                 .setHeader("X-redirect", "/foo/test")
                 .execute().get();
         assertNotNull(response);
         assertEquals(response.getStatusCode(),200);
-        assertEquals(response.getUrl().toString(), TARGET_URL);
+        assertEquals(response.getUri().toString(), getTargetUrl());
     }
 }

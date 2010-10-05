@@ -16,9 +16,9 @@
 package com.ning.http.client;
 
 import java.io.InputStream;
+import java.util.Collection;
 import java.util.Map;
 
-import com.google.common.collect.Multimap;
 import com.ning.http.client.Request.EntityWriter;
 
 /**
@@ -98,23 +98,33 @@ public class RequestBuilder extends RequestBuilderBase<RequestBuilder> {
     }
 
     @Override
-    public RequestBuilder setHeaders(Headers headers) {
+    public RequestBuilder setHeaders(FluentCaseInsensitiveStringsMap headers) {
         return super.setHeaders(headers);
     }
 
     @Override
-    public RequestBuilder setParameters(Map<String, String> parameters) throws IllegalArgumentException {
+    public RequestBuilder setHeaders(Map<String, Collection<String>> headers) {
+        return super.setHeaders(headers);
+    }
+
+    @Override
+    public RequestBuilder setParameters(Map<String, Collection<String>> parameters) throws IllegalArgumentException {
         return super.setParameters(parameters);
     }
 
     @Override
-    public RequestBuilder setParameters(Multimap<String, String> parameters) throws IllegalArgumentException {
+    public RequestBuilder setParameters(FluentStringsMap parameters) throws IllegalArgumentException {
         return super.setParameters(parameters);
     }
 
     @Override
     public RequestBuilder setUrl(String url) {
         return super.setUrl(url);
+    }
+
+    @Override
+    public RequestBuilder setProxyServer(ProxyServer proxyServer) {
+        return super.setProxyServer(proxyServer);
     }
 
     @Override

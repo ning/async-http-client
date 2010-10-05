@@ -12,15 +12,26 @@
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
  * License for the specific language governing permissions and limitations
  * under the License.
- *
  */
 package com.ning.http.client;
 
-public enum RequestType {
-    GET,
-    POST,
-    PUT,
-    DELETE,
-    HEAD,
-    OPTIONS
+/**
+ * Per request configuration.
+ *
+ * @author Hubert Iwaniuk
+ */
+public class AsyncHttpClientPerRequestConfig {
+    private final ProxyServer proxyServer;
+
+    public AsyncHttpClientPerRequestConfig() {
+        this(null);
+    }
+    
+    public AsyncHttpClientPerRequestConfig(ProxyServer proxyServer) {
+        this.proxyServer = proxyServer;
+    }
+
+    public ProxyServer getProxyServer() {
+        return proxyServer;
+    }
 }

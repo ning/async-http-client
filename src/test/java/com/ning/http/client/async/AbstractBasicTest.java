@@ -22,11 +22,15 @@ import com.ning.http.client.HttpResponseHeaders;
 import com.ning.http.client.HttpResponseStatus;
 import com.ning.http.client.Response;
 import org.apache.log4j.BasicConfigurator;
+import org.apache.log4j.ConsoleAppender;
+import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
-import org.mortbay.jetty.Connector;
-import org.mortbay.jetty.Server;
-import org.mortbay.jetty.handler.AbstractHandler;
-import org.mortbay.jetty.nio.SelectChannelConnector;
+import org.apache.log4j.PatternLayout;
+import org.eclipse.jetty.server.Connector;
+import org.eclipse.jetty.server.Request;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.handler.AbstractHandler;
+import org.eclipse.jetty.server.nio.SelectChannelConnector;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -35,25 +39,25 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.net.ServerSocket;
 import java.util.Enumeration;
 
 public class AbstractBasicTest {
   
-    protected final static int PORT = 19999;
     protected Server server;
+    protected int port1;
+    protected int port2;
     protected final static Logger log = Logger.getLogger(AbstractBasicTest.class);
 
     public final static int TIMEOUT = 30;
-
-    protected final static String TARGET_URL = "http://127.0.0.1:19999/foo/test";
 
     public static class EchoHandler extends AbstractHandler {
 
         /* @Override */
         public void handle(String pathInContext,
+                           Request request,
                            HttpServletRequest httpRequest,
-                           HttpServletResponse httpResponse,
-                           int dispatch) throws ServletException, IOException {
+                           HttpServletResponse httpResponse) throws IOException, ServletException {
 
             if (httpRequest.getHeader("X-HEAD") != null){
                 httpResponse.setContentLength(1);
@@ -111,8 +115,8 @@ public class AbstractBasicTest {
             }
 
             int size = 10 * 1024;
-            if (httpRequest.getInputStream().available() > 0) {
-                size = httpRequest.getInputStream().available();
+            if (httpRequest.getContentLength() > 0) {
+                size = httpRequest.getContentLength();
             }
             byte[] bytes = new byte[size];
             if (bytes.length > 0) {
@@ -134,6 +138,25 @@ public class AbstractBasicTest {
         server.stop();
     }
 
+    protected int findFreePort() throws IOException {
+        ServerSocket socket = null;
+
+        try {
+            socket = new ServerSocket(0);
+    
+            return socket.getLocalPort();
+        }
+        finally {
+            if (socket != null) {
+                socket.close();
+            }
+        }
+    }
+
+    protected String getTargetUrl() {
+        return String.format("http://127.0.0.1:%d/foo/test", port1);
+    }
+
     public AbstractHandler configureHandler() throws Exception {
         return new EchoHandler();
     }
@@ -141,18 +164,24 @@ public class AbstractBasicTest {
     @BeforeClass(alwaysRun = true)
     public void setUpGlobal() throws Exception {
         server = new Server();
-        BasicConfigurator.configure();        
+        Logger root = Logger.getRootLogger();
+        root.setLevel(Level.DEBUG);
+        root.addAppender(new ConsoleAppender(
+                new PatternLayout(PatternLayout.TTCC_CONVERSION_PATTERN)));
+
+        port1 = findFreePort();
+        port2 = findFreePort();
 
         Connector listener = new SelectChannelConnector();
 
         listener.setHost("127.0.0.1");
-        listener.setPort(PORT);
+        listener.setPort(port1);
                                                                                                  
         server.addConnector(listener);
 
         listener = new SelectChannelConnector();
         listener.setHost("127.0.0.1");
-        listener.setPort(38080);
+        listener.setPort(port2);
 
         server.addConnector(listener);
 
@@ -171,7 +200,7 @@ public class AbstractBasicTest {
         /* @Override */
         public void onThrowable(Throwable t) {
             t.printStackTrace();
-            Assert.fail("Unexpected exception", t);
+            Assert.fail("Unexpected exception: " + t.getMessage(), t);
         }
 
     }
@@ -186,17 +215,17 @@ public class AbstractBasicTest {
         }
 
         /* @Override */
-        public STATE onBodyPartReceived(final HttpResponseBodyPart<String> content) throws Exception {
+        public STATE onBodyPartReceived(final HttpResponseBodyPart content) throws Exception {
             return STATE.CONTINUE;
         }
 
         /* @Override */
-        public STATE onStatusReceived(final HttpResponseStatus<String> responseStatus) throws Exception {
+        public STATE onStatusReceived(final HttpResponseStatus responseStatus) throws Exception {
             return STATE.CONTINUE;
         }
 
         /* @Override */
-        public STATE onHeadersReceived(final HttpResponseHeaders<String> headers) throws Exception {
+        public STATE onHeadersReceived(final HttpResponseHeaders headers) throws Exception {
             return STATE.CONTINUE;
         }
 

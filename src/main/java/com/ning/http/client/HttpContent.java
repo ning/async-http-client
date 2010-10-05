@@ -15,27 +15,25 @@
  */
 package com.ning.http.client;
 
-import com.ning.http.url.Url;
+import java.net.URI;
 
 /**
  * Base class for callback class used by {@link com.ning.http.client.AsyncHandler}
  */
-public class HttpContent<R> {
-    protected final R response;
-    protected final AsyncHttpProvider<R> provider;
-    protected final Url url;
+public class HttpContent {
+    protected final AsyncHttpProvider<?> provider;
+    protected final URI uri;
 
-    protected HttpContent(Url url, R response, AsyncHttpProvider<R> provider) {
-        this.response = response;
+    protected HttpContent(URI url, AsyncHttpProvider<?> provider) {
         this.provider = provider;
-        this.url= url;
+        this.uri= url;
     }
 
-    protected final AsyncHttpProvider<R> provider() {
+    protected final AsyncHttpProvider<?> provider() {
         return provider;
     }
 
-    public final Url getUrl(  ){
-        return url;
+    public final URI getUrl(  ){
+        return uri;
     }
 }

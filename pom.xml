@@ -1,13 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>org.sonatype.oss</groupId>
+        <artifactId>oss-parent</artifactId>
+        <version>2</version>
+    </parent>
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.ning</groupId>
     <artifactId>async-http-client</artifactId>
     <name>async-http-client</name>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
-    <description/>
+    <description>
+        Async Http Client library purpose is to allow Java applications to easily execute HTTP requests and
+        asynchronously process the HTTP responses.
+    </description>
+    <url>http://github.com/ning/async-http-client</url>
     <scm>
         <connection>scm:git:git@github.com:ning/async-http-client.git</connection>
         <url>scm:git:git@github.com:ning/async-http-client.git</url>
@@ -16,11 +25,39 @@
     <prerequisites>
         <maven>2.0.9</maven>
     </prerequisites>
+    <developers>
+        <developer>
+            <id>brianm</id>
+            <name>Brian McCallister</name>
+            <email>brianm@skife.org</email>
+        </developer>
+        <developer>
+            <id>jfarcand</id>
+            <name>Jeanfrancois Arcand</name>
+            <email>jfarcand@apache.org</email>
+        </developer>
+        <developer>
+            <id>thomd</id>
+            <name>Thomas Dudziak</name>
+            <email>tomdz@apache.org</email>
+        </developer>
+        <developer>
+            <id>neotyk</id>
+            <name>Hubert Iwaniuk</name>
+        </developer>
+    </developers>
+    <licenses>
+        <license>
+            <name>Apache License 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.html</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
     <dependencies>
         <dependency>
             <groupId>org.jboss.netty</groupId>
             <artifactId>netty</artifactId>
-            <version>3.2.0.CR1</version>
+            <version>3.2.1.Final</version>
             <exclusions>
                 <exclusion>
                     <groupId>javax.servlet</groupId>
@@ -38,12 +75,6 @@
             <version>1.2.13</version>
         </dependency>
 
-        <dependency>
-            <groupId>com.google.collections</groupId>
-            <artifactId>google-collections</artifactId>
-            <version>1.0</version>
-        </dependency>
-
         <!-- Test dependencies -->
         <dependency>
             <groupId>org.testng</groupId>
@@ -53,9 +84,9 @@
             <classifier>jdk15</classifier>
         </dependency>
         <dependency>
-            <groupId>org.mortbay.jetty</groupId>
-            <artifactId>jetty</artifactId>
-            <version>6.1.22</version>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-server</artifactId>
+            <version>7.1.4.v20100610</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -88,7 +119,6 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
@@ -111,7 +141,6 @@
                     </execution>
                 </executions>
             </plugin>
-            -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -184,8 +213,10 @@
                             <shadedArtifactAttached>true</shadedArtifactAttached>
                             <shadedClassifierName>shaded</shadedClassifierName>
                             <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ComponentsXmlResourceTransformer" />
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ComponentsXmlResourceTransformer"/>
                             </transformers>
                             <artifactSet>
                                 <includes>
@@ -204,6 +235,62 @@
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <profile>
+            <id>release-sign-artifacts</id>
+            <activation>
+                <property>
+                    <name>performRelease</name>
+                    <value>true</value>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>offline-testing</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <groups>standalone</groups>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>online-testing</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <groups>standalone, online</groups>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
     <distributionManagement>
         <repository>
             <id>sonatype-nexus-staging</id>
